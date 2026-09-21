@@ -28,15 +28,27 @@ interface PreviewTarget {
   kind: MatchKind
 }
 
-function useObjectUrl(file: File): string {
-  const url = useMemo(() => URL.createObjectURL(file), [file])
-  useEffect(
-    () => () => {
-      URL.revokeObjectURL(url)
-    },
-    [url],
-  )
+const objectUrlByFile = new WeakMap<File, string>()
+const activeObjectUrls = new Set<string>()
+
+function objectUrlFor(file: File): string {
+  const cached = objectUrlByFile.get(file)
+  if (cached) {
+    return cached
+  }
+  const url = URL.createObjectURL(file)
+  objectUrlByFile.set(file, url)
+  activeObjectUrls.add(url)
   return url
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => {
+    for (const url of activeObjectUrls) {
+      URL.revokeObjectURL(url)
+    }
+    activeObjectUrls.clear()
+  })
 }
 
 function Thumbnail({
@@ -50,7 +62,7 @@ function Thumbnail({
   rect?: TextureRef['rect']
   kind: MatchKind
 }) {
-  const url = useObjectUrl(file)
+  const url = objectUrlFor(file)
   const width = rect ? (image.width / rect.width) * 100 : 100
   const height = rect ? (image.height / rect.height) * 100 : 100
   const translateX = rect ? -(rect.x / rect.width) * 100 : 0
