@@ -149,7 +149,7 @@ async function importAlignmentFixture(page: Page, colorFile: string, normalFile:
     path.join(fixtureRoot, normalFile),
   ])
   await expect(page.getByTestId('manual-match-page')).toBeVisible()
-  await expect(page.locator('.matching-row')).toHaveCount(1)
+  await expect(page.locator('.matching-column')).toHaveCount(1)
   await page.getByTestId('confirm-manual-match').click()
   await expect(page.locator('.frame-item')).toHaveCount(1)
 }
@@ -547,10 +547,10 @@ test('manual matching page pairs images with different names by drag and drop', 
   await expect(pageRoot).toBeVisible()
   await expect(pageRoot).toContainText('walk_0001.png')
   await expect(pageRoot).toContainText('尺寸必须完全一致')
-  await expect(page.locator('.matching-row')).toHaveCount(0)
+  await expect(page.locator('.matching-column')).toHaveCount(0)
 
-  await page.getByRole('button', { name: '添加空白匹配行' }).click()
-  const row = page.locator('.matching-row').first()
+  await page.getByRole('button', { name: '添加匹配列' }).click()
+  const row = page.locator('.matching-column').first()
   const sourceSlot = row.locator('[data-drop-kind="source"]')
   const normalSlot = row.locator('[data-drop-kind="normal"]')
 
@@ -567,6 +567,11 @@ test('manual matching page pairs images with different names by drag and drop', 
 
   await expect(sourceSlot).toContainText('horizontal')
   await expect(normalSlot).toContainText('vertical_n')
+  await sourceSlot.locator('.match-thumbnail-source').dblclick()
+  await expect(page.getByTestId('image-zoom-dialog')).toBeVisible()
+  await expect(page.getByTestId('image-zoom-dialog')).toContainText('horizontal')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('image-zoom-dialog')).toHaveCount(0)
   await page.getByTestId('confirm-manual-match').click()
 
   await expect(page.getByTestId('manual-match-page')).toHaveCount(0)

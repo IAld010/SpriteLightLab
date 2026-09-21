@@ -20,6 +20,14 @@ interface DragPayload {
   id: string
 }
 
+interface PreviewTarget {
+  file: File
+  image: RuntimeImage
+  rect?: TextureRef['rect']
+  name: string
+  kind: MatchKind
+}
+
 function useObjectUrl(file: File): string {
   const url = useMemo(() => URL.createObjectURL(file), [file])
   useEffect(
@@ -85,7 +93,20 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
   const [rows, setRows] = useState<MatchingRow[]>(initial.rows)
   const [selected, setSelected] = useState<DragPayload>()
   const dragging = useRef<DragPayload | undefined>(undefined)
+  const [previewTarget, setPreviewTarget] = useState<PreviewTarget>()
 
+  useEffect(() => {
+    if (!previewTarget) {
+      return
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPreviewTarget(undefined)
+      }
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [previewTarget])
   const frameById = useMemo(() => new Map(bundle.frames.map((frame) => [frame.id, frame])), [bundle])
   const candidateById = useMemo(
     () => new Map(bundle.normalCandidates.map((candidate) => [candidate.id, candidate])),
@@ -172,7 +193,13 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
     }
   }
 
-  const renderPoolItem = (kind: MatchKind, id: string, name: string, thumbnail: React.ReactNode) => (
+  const renderPoolItem = (
+    kind: MatchKind,
+    id: string,
+    name: string,
+    thumbnail: React.ReactNode,
+    preview: PreviewTarget,
+  ) => (
     <div
       role="button"
       tabIndex={0}
@@ -183,6 +210,10 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
       onDragStart={(event) => dragStart(event, { kind, id })}
       onDragEnd={() => { dragging.current = undefined }}
       onClick={() => setSelected({ kind, id })}
+      onDoubleClick={(event) => {
+        event.stopPropagation()
+        setPreviewTarget(preview)
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
@@ -219,9 +250,9 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
 
       <div className="manual-match-summary">
         <span>自动匹配 <strong>{initial.rows.length}</strong></span>
-        <span>当前配对行 <strong>{matchedRows.length}</strong></span>
+        <span>当前配对列 <strong>{matchedRows.length}</strong></span>
         <span>待匹配精灵 <strong>{unpairedFrames.length}</strong></span>
-        <span>待匹配法线 <strong>{unpairedNormals.length}</strong></span>
+        <span>待匹配非精灵图 <strong>{unpairedNormals.length}</strong></span>
         <span className={errors.length > 0 ? 'has-error' : ''}>错误 <strong>{errors.length}</strong></span>
       </div>
 
@@ -234,7 +265,7 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
             </div>
             <div className="matching-pool-list">
               {unpairedFrames.length === 0 ? (
-                <div className="empty-inline">所有精灵图都已放入匹配行。</div>
+                <div className="empty-inline">所有精灵图都已放入匹配列。</div>
               ) : (
                 unpairedFrames.map((frame) => {
                   const image = frameImage(bundle, frame)
@@ -244,6 +275,7 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
                         frame.id,
                         frame.name,
                         <Thumbnail file={image.file} image={image} rect={frame.source.rect} kind="source" />,
+                        { file: image.file, image, rect: frame.source.rect, name: frame.name, kind: 'source' },
                       )
                     : null
                 })
@@ -253,12 +285,12 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
 
           <section>
             <div className="section-title-row">
-              <strong>法线图池</strong>
+              <strong>非精灵图 / 法线图池</strong>
               <span>{unpairedNormals.length}</span>
             </div>
             <div className="matching-pool-list">
               {unpairedNormals.length === 0 ? (
-                <div className="empty-inline">所有法线图都已放入匹配行。</div>
+                <div className="empty-inline">所有法线图都已放入匹配列。</div>
               ) : (
                 unpairedNormals.map((candidate) => {
                   const image = candidateImage(bundle, candidate)
@@ -268,6 +300,7 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
                         candidate.id,
                         candidate.name,
                         <Thumbnail file={image.file} image={image} rect={candidate.rect} kind="normal" />,
+                        { file: image.file, image, rect: candidate.rect, name: candidate.name, kind: 'normal' },
                       )
                     : null
                 })
@@ -279,116 +312,150 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
         <section className="matching-workspace">
           <div className="matching-workspace-heading">
             <div>
-              <strong>配对行</strong>
-              <span>每一行的上方放精灵图，下方放对应法线图。</span>
+              <strong>配对列</strong>
+              <span>上方一行放精灵图，下方一行放对应法线图；每组配对向右增加一列。</span>
             </div>
-            <button type="button" className="button" onClick={addRow}>添加空白匹配行</button>
+            <button type="button" className="button" onClick={addRow}>添加匹配列</button>
           </div>
 
-          <div className="matching-rows">
-            {rows.length === 0 && (
+          <div className="matching-board">
+            <div className="matching-lane-labels" aria-hidden="true">
+              <span>精灵图</span>
+              <span>非精灵图 / 法线图</span>
+            </div>
+
+            {rows.length === 0 ? (
               <div className="matching-empty-state" onDragOver={(event) => event.preventDefault()}>
-                <strong>还没有匹配行</strong>
-                <span>点击“添加空白匹配行”，再把左侧图片拖入。</span>
-                <button type="button" className="button button-primary" onClick={addRow}>添加第一行</button>
+                <strong>还没有匹配列</strong>
+                <span>点击“添加匹配列”，再把左侧图片拖入对应列。</span>
+                <button type="button" className="button button-primary" onClick={addRow}>
+                  添加第一列
+                </button>
+              </div>
+            ) : (
+              <div className="matching-columns">
+                {rows.map((row, index) => {
+                  const frame = row.sourceFrameId ? frameById.get(row.sourceFrameId) : undefined
+                  const candidate = row.normalCandidateId
+                    ? candidateById.get(row.normalCandidateId)
+                    : undefined
+                  const colorImage = frame ? frameImage(bundle, frame) : undefined
+                  const normalImage = candidate ? candidateImage(bundle, candidate) : undefined
+                  return (
+                    <article className="matching-column" key={row.id} data-column-id={row.id}>
+                      <div className="matching-column-heading">
+                        <span>列 {String(index + 1).padStart(2, '0')}</span>
+                        <button type="button" className="mini-button danger" onClick={() => removeRow(row.id)}>
+                          移除列
+                        </button>
+                      </div>
+
+                      <div
+                        className={`matching-slot matching-slot-source ${frame ? 'is-filled' : ''}`}
+                        data-drop-kind="source"
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => dropOnSlot(event, row.id, 'source')}
+                        onClick={() => activateSlot(row.id, 'source')}
+                      >
+                        {frame && colorImage ? (
+                          <>
+                            <div
+                              className="matching-thumbnail-drag"
+                              draggable
+                              onDragStart={(event) => dragStart(event, { kind: 'source', id: frame.id })}
+                              onDragEnd={() => { dragging.current = undefined }}
+                              onDoubleClick={(event) => {
+                                event.stopPropagation()
+                                setPreviewTarget({
+                                  file: colorImage.file,
+                                  image: colorImage,
+                                  rect: frame.source.rect,
+                                  name: frame.name,
+                                  kind: 'source',
+                                })
+                              }}
+                            >
+                              <Thumbnail file={colorImage.file} image={colorImage} rect={frame.source.rect} kind="source" />
+                            </div>
+                            <div className="matching-slot-label">
+                              <strong>{frame.name}</strong>
+                              <span>{colorImage.width}×{colorImage.height}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="mini-button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                clearSlot(row.id, 'source')
+                              }}
+                            >
+                              清除
+                            </button>
+                          </>
+                        ) : (
+                          <span className="matching-slot-placeholder">拖入精灵图</span>
+                        )}
+                      </div>
+
+                      <div className="matching-column-link" aria-hidden="true">↕</div>
+
+                      <div
+                        className={`matching-slot matching-slot-normal ${candidate ? 'is-filled' : ''}`}
+                        data-drop-kind="normal"
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => dropOnSlot(event, row.id, 'normal')}
+                        onClick={() => activateSlot(row.id, 'normal')}
+                      >
+                        {candidate && normalImage ? (
+                          <>
+                            <div
+                              className="matching-thumbnail-drag"
+                              draggable
+                              onDragStart={(event) => dragStart(event, { kind: 'normal', id: candidate.id })}
+                              onDragEnd={() => { dragging.current = undefined }}
+                              onDoubleClick={(event) => {
+                                event.stopPropagation()
+                                setPreviewTarget({
+                                  file: normalImage.file,
+                                  image: normalImage,
+                                  rect: candidate.rect,
+                                  name: candidate.name,
+                                  kind: 'normal',
+                                })
+                              }}
+                            >
+                              <Thumbnail file={normalImage.file} image={normalImage} rect={candidate.rect} kind="normal" />
+                            </div>
+                            <div className="matching-slot-label">
+                              <strong>{candidate.name}</strong>
+                              <span>{normalImage.width}×{normalImage.height}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="mini-button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                clearSlot(row.id, 'normal')
+                              }}
+                            >
+                              清除
+                            </button>
+                          </>
+                        ) : (
+                          <span className="matching-slot-placeholder">拖入对应法线图</span>
+                        )}
+                      </div>
+
+                      <div className="matching-column-state">
+                        <span className={`pair-dot pair-${frame && candidate ? 'manual' : 'missing'}`} />
+                        <small>{frame && candidate ? '已配对' : '缺少法线'}</small>
+                      </div>
+                    </article>
+                  )
+                })}
               </div>
             )}
-
-            {rows.map((row, index) => {
-              const frame = row.sourceFrameId ? frameById.get(row.sourceFrameId) : undefined
-              const candidate = row.normalCandidateId
-                ? candidateById.get(row.normalCandidateId)
-                : undefined
-              const colorImage = frame ? frameImage(bundle, frame) : undefined
-              const normalImage = candidate ? candidateImage(bundle, candidate) : undefined
-              return (
-                <article className="matching-row" key={row.id} data-row-id={row.id}>
-                  <div className="matching-row-number">{String(index + 1).padStart(2, '0')}</div>
-                  <div className="matching-row-pairs">
-                    <div
-                      className={`matching-slot matching-slot-source ${frame ? 'is-filled' : ''}`}
-                      data-drop-kind="source"
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => dropOnSlot(event, row.id, 'source')}
-                      onClick={() => activateSlot(row.id, 'source')}
-                    >
-                      {frame && colorImage ? (
-                        <>
-                          <div
-                            draggable
-                            onDragStart={(event) => dragStart(event, { kind: 'source', id: frame.id })}
-                            onDragEnd={() => { dragging.current = undefined }}
-                          >
-                            <Thumbnail file={colorImage.file} image={colorImage} rect={frame.source.rect} kind="source" />
-                          </div>
-                          <div className="matching-slot-label">
-                            <strong>{frame.name}</strong>
-                            <span>{colorImage.width}×{colorImage.height}</span>
-                          </div>
-                          <button
-                            type="button"
-                            className="mini-button"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              clearSlot(row.id, 'source')
-                            }}
-                          >
-                            清除
-                          </button>
-                        </>
-                      ) : (
-                        <span className="matching-slot-placeholder">拖入精灵图</span>
-                      )}
-                    </div>
-                    <div className="matching-row-link" aria-hidden="true">↕</div>
-                    <div
-                      className={`matching-slot matching-slot-normal ${candidate ? 'is-filled' : ''}`}
-                      data-drop-kind="normal"
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => dropOnSlot(event, row.id, 'normal')}
-                      onClick={() => activateSlot(row.id, 'normal')}
-                    >
-                      {candidate && normalImage ? (
-                        <>
-                          <div
-                            draggable
-                            onDragStart={(event) => dragStart(event, { kind: 'normal', id: candidate.id })}
-                            onDragEnd={() => { dragging.current = undefined }}
-                          >
-                            <Thumbnail file={normalImage.file} image={normalImage} rect={candidate.rect} kind="normal" />
-                          </div>
-                          <div className="matching-slot-label">
-                            <strong>{candidate.name}</strong>
-                            <span>{normalImage.width}×{normalImage.height}</span>
-                          </div>
-                          <button
-                            type="button"
-                            className="mini-button"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              clearSlot(row.id, 'normal')
-                            }}
-                          >
-                            清除
-                          </button>
-                        </>
-                      ) : (
-                        <span className="matching-slot-placeholder">拖入对应法线图</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="matching-row-state">
-                    <span className={`pair-dot pair-${frame && candidate ? 'manual' : 'missing'}`} />
-                    <small>{frame && candidate ? '已配对' : '缺少法线'}</small>
-                    <button type="button" className="mini-button danger" onClick={() => removeRow(row.id)}>
-                      移除行
-                    </button>
-                  </div>
-                </article>
-              )
-            })}
           </div>
-
           {errors.length > 0 && (
             <div className="matching-errors" role="alert">
               {errors.map((warning, index) => (
@@ -403,6 +470,44 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
 
         <ImportRulesPanel />
       </div>
+      {previewTarget && (
+        <div
+          className="image-zoom-backdrop"
+          role="presentation"
+          onMouseDown={() => setPreviewTarget(undefined)}
+        >
+          <div
+            className="image-zoom-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="image-zoom-title"
+            data-testid="image-zoom-dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header>
+              <div>
+                <div className="eyebrow">{previewTarget.kind === 'source' ? '精灵图' : '法线图'}</div>
+                <h2 id="image-zoom-title">{previewTarget.name}</h2>
+              </div>
+              <button type="button" className="button" onClick={() => setPreviewTarget(undefined)}>关闭</button>
+            </header>
+            <div className="image-zoom-canvas">
+              <Thumbnail
+                file={previewTarget.file}
+                image={previewTarget.image}
+                rect={previewTarget.rect}
+                kind={previewTarget.kind}
+              />
+            </div>
+            <p>
+              原始尺寸 {previewTarget.image.width}×{previewTarget.image.height}
+              {previewTarget.rect
+                ? ` · 切片区域 ${previewTarget.rect.width}×${previewTarget.rect.height}`
+                : ''}
+            </p>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
