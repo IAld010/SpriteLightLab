@@ -107,6 +107,11 @@ function toSrgb(value: number): number {
   return clamp(value) ** (1 / 2.2)
 }
 
+interface LightSample {
+  diffuse: number
+  specular: number
+}
+
 function lightContribution(
   x: number,
   y: number,
@@ -115,7 +120,7 @@ function lightContribution(
   normalZ: number,
   light: LightSource,
   objectRect: [number, number, number, number],
-): number {
+): LightSample {
   const localX = objectRect[2] > 0 ? (light.x - objectRect[0]) / objectRect[2] : 0
   const localY = objectRect[3] > 0 ? (light.y - objectRect[1]) / objectRect[3] : 0
   const aspect = 1
@@ -149,17 +154,32 @@ function lightContribution(
       cone = cone * cone * (3 - 2 * cone)
     }
   }
-  const z = light.type === 'directional' ? 0.78 : 0.7
-  const directionLength = Math.sqrt(directionX * directionX + directionY * directionY + z * z)
-  const lx = directionX / directionLength
-  const ly = directionY / directionLength
-  const lz = z / directionLength
-  const diffuse = Math.max(normalX * lx + normalY * ly + normalZ * lz, 0)
-  let contribution = light.intensity * diffuse * attenuation * cone
-  if (light.type !== 'directional' && (x - localX) ** 2 + (y - localY) ** 2 > light.radius ** 2) {
-    contribution = 0
+
+  const surfaceZ = light.type === 'directional' ? 0.78 : 0.7
+  const directionLength = Math.sqrt(directionX * directionX + directionY * directionY + surfaceZ * surfaceZ)
+  const lightX = directionX / directionLength
+  const lightY = directionY / directionLength
+  const lightZ = surfaceZ / directionLength
+  const diffuse = Math.max(normalX * lightX + normalY * lightY + normalZ * lightZ, 0)
+  const contribution = light.intensity * diffuse * attenuation * cone
+  if (contribution <= 0) {
+    return { diffuse: 0, specular: 0 }
   }
-  return contribution
+
+  // View direction is the canvas normal. Blinn-Phong keeps the highlight
+  // independent from albedo while remaining directional for normal maps.
+  const halfX = lightX
+  const halfY = lightY
+  const halfZ = lightZ + 1
+  const halfLength = Math.max(Math.sqrt(halfX * halfX + halfY * halfY + halfZ * halfZ), 0.0001)
+  const specularDot = clamp(
+    normalX * (halfX / halfLength) +
+      normalY * (halfY / halfLength) +
+      normalZ * (halfZ / halfLength),
+  )
+  const specular = specularDot ** 32 * light.intensity * attenuation * cone
+
+  return { diffuse: contribution, specular }
 }
 
 export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
@@ -232,10 +252,16 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
         let lightRed = toLinear(ambient.r / 255) * input.lighting.ambientIntensity
         let lightGreen = toLinear(ambient.g / 255) * input.lighting.ambientIntensity
         let lightBlue = toLinear(ambient.b / 255) * input.lighting.ambientIntensity
+        let specularRed = 0
+        let specularGreen = 0
+        let specularBlue = 0
+        const specularStrength = input.preferences.specularEnabled
+          ? input.preferences.specularStrength
+          : 0
 
         for (const light of input.lighting.lights) {
           if (!light.enabled) continue
-          const contribution = lightContribution(
+          const sample = lightContribution(
             (x + 0.5) / outputWidth,
             (y + 0.5) / outputHeight,
             normalX,
@@ -244,16 +270,25 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
             light,
             input.objectRect,
           )
-          if (contribution <= 0) continue
+          if (sample.diffuse <= 0) continue
           const lightColor = hexToRgb(light.color)
-          lightRed += toLinear(lightColor.r / 255) * contribution
-          lightGreen += toLinear(lightColor.g / 255) * contribution
-          lightBlue += toLinear(lightColor.b / 255) * contribution
+          const linearRed = toLinear(lightColor.r / 255)
+          const linearGreen = toLinear(lightColor.g / 255)
+          const linearBlue = toLinear(lightColor.b / 255)
+          lightRed += linearRed * sample.diffuse
+          lightGreen += linearGreen * sample.diffuse
+          lightBlue += linearBlue * sample.diffuse
+          if (specularStrength > 0) {
+            const highlight = sample.specular * specularStrength
+            specularRed += linearRed * highlight
+            specularGreen += linearGreen * highlight
+            specularBlue += linearBlue * highlight
+          }
         }
 
-        red = toSrgb(toLinear(red) * lightRed)
-        green = toSrgb(toLinear(green) * lightGreen)
-        blue = toSrgb(toLinear(blue) * lightBlue)
+        red = toSrgb(toLinear(red) * lightRed + specularRed)
+        green = toSrgb(toLinear(green) * lightGreen + specularGreen)
+        blue = toSrgb(toLinear(blue) * lightBlue + specularBlue)
       }
 
       output.data[outputOffset] = Math.round(clamp(red) * 255)

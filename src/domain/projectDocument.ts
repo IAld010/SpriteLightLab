@@ -2,9 +2,11 @@ import { createDefaultLighting } from './defaults'
 import type {
   AssetBundle,
   EditorSettings,
+  GridImportConfig,
   LightingState,
   PalettePreset,
-  ProjectDocumentV1,
+  ProjectDocument,
+  ProjectDocumentV2,
   RenderPreferences,
 } from './types'
 
@@ -20,9 +22,10 @@ export function createProjectDocument(
   bundle: AssetBundle,
   state: ProjectStateSnapshot,
   settings: EditorSettings,
-): ProjectDocumentV1 {
+  options: { gridConfig?: GridImportConfig } = {},
+): ProjectDocumentV2 {
   return {
-    version: 1,
+    version: 2,
     projectName: state.projectName,
     createdAt: new Date().toISOString(),
     sourceMode: bundle.mode,
@@ -52,10 +55,21 @@ export function createProjectDocument(
     lighting: state.lighting,
     renderPreferences: state.renderPreferences,
     settings,
+    ...(bundle.gridConfig || options.gridConfig ? { gridConfig: bundle.gridConfig ?? options.gridConfig } : {}),
   }
 }
 
-export function projectStateFromDocument(document: ProjectDocumentV1): ProjectStateSnapshot {
+export function upgradeProjectDocument(document: ProjectDocument): ProjectDocumentV2 {
+  if (document.version === 2) {
+    return document
+  }
+  return {
+    ...document,
+    version: 2,
+  }
+}
+
+export function projectStateFromDocument(document: ProjectDocument): ProjectStateSnapshot {
   return {
     projectName: document.projectName || '未命名精灵项目',
     palettePresets: document.palettePresets?.length
@@ -75,20 +89,27 @@ export function projectStateFromDocument(document: ProjectDocumentV1): ProjectSt
   }
 }
 
-export function serializeProjectDocument(document: ProjectDocumentV1): string {
-  return `${JSON.stringify(document, null, 2)}\n`
+export function serializeProjectDocument(document: ProjectDocument): string {
+  return `${JSON.stringify(upgradeProjectDocument(document), null, 2)}\n`
 }
 
-export function parseProjectDocument(content: string): ProjectDocumentV1 {
-  const parsed = JSON.parse(content) as Partial<ProjectDocumentV1>
-  if (parsed.version !== 1 || !Array.isArray(parsed.palettePresets)) {
+export function parseProjectDocument(content: string): ProjectDocumentV2 {
+  const parsed = JSON.parse(content) as {
+    version?: number
+    palettePresets?: unknown
+  }
+  if (
+    (parsed.version !== 1 && parsed.version !== 2) ||
+    !Array.isArray(parsed.palettePresets)
+  ) {
     throw new Error('项目文件版本或结构不受支持。')
   }
-  return parsed as ProjectDocumentV1
+  return upgradeProjectDocument(parsed as unknown as ProjectDocument)
 }
+
 export function applyProjectDocumentToBundle(
   bundle: AssetBundle,
-  document: ProjectDocumentV1,
+  document: ProjectDocument,
 ): AssetBundle {
   const documentFrameByName = new Map(document.frames.map((frame) => [frame.name, frame]))
   const candidatesByName = new Map(
@@ -122,6 +143,7 @@ export function applyProjectDocumentToBundle(
 
   return {
     ...bundle,
+    ...(document.version === 2 && document.gridConfig ? { gridConfig: document.gridConfig } : {}),
     frames,
     animations: animations.some((animation) => animation.frameIds.length > 0)
       ? animations

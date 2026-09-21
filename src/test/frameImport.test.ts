@@ -78,3 +78,15 @@ describe('groupFramesIntoAnimations', () => {
     expect(clips[1].frameIds).toHaveLength(2)
   })
 })
+  it('blocks a normal whose pixel dimensions differ from the color frame', () => {
+    const color = image('idle_0001.png')
+    const normal = image('idle_0001_n.png')
+    normal.width = 64
+    normal.height = 64
+
+    const result = pairFrameImages([color], [normal])
+
+    expect(result.frames[0].normal).toBeUndefined()
+    expect(result.frames[0].pairingStatus).toBe('mismatch')
+    expect(result.warnings.some((warning) => warning.code === 'frame-size-mismatch')).toBe(true)
+  })

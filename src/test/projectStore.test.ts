@@ -40,4 +40,15 @@ describe('project store', () => {
     useProjectStore.getState().removeLight(light.id)
     expect(useProjectStore.getState().lighting.lights.some((item) => item.id === light.id)).toBe(false)
   })
+
+  it('resets all project-level state', () => {
+    useProjectStore.getState().setProjectName('待移除项目')
+    useProjectStore.getState().addLight('point')
+    useProjectStore.getState().resetProjectState()
+
+    expect(useProjectStore.getState().projectName).toBe('未命名精灵项目')
+    expect(useProjectStore.getState().lighting.lights).toHaveLength(2)
+    expect(useProjectStore.getState().palettePresets).toHaveLength(1)
+    expect(useProjectStore.getState().past).toHaveLength(0)
+  })
 })

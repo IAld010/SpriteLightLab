@@ -1,4 +1,4 @@
-export type ImportMode = 'frames' | 'atlas'
+export type ImportMode = 'frames' | 'atlas' | 'grid'
 export type PairingStatus = 'matched' | 'manual' | 'missing' | 'mismatch'
 export type BackendPreference = 'webgl' | 'webgpu'
 export type PreviewTextureMode = 'color' | 'normal'
@@ -9,6 +9,18 @@ export interface Rect {
   y: number
   width: number
   height: number
+}
+
+export interface GridImportConfig {
+  frameWidth: number
+  frameHeight: number
+  columns: number
+  rows: number
+  offsetX: number
+  offsetY: number
+  spacingX: number
+  spacingY: number
+  frameOrder: 'row-major' | 'column-major'
 }
 
 export interface RuntimeImage {
@@ -68,6 +80,7 @@ export interface AssetBundle {
   paletteMode: PaletteMode
   paletteSources: string[]
   metadataFiles?: Array<{ name: string; file: File }>
+  gridConfig?: GridImportConfig
   warnings: ImportWarning[]
 }
 
@@ -194,3 +207,10 @@ export interface ProjectDocumentV1 {
   renderPreferences: RenderPreferences
   settings: EditorSettings
 }
+
+export interface ProjectDocumentV2 extends Omit<ProjectDocumentV1, 'version'> {
+  version: 2
+  gridConfig?: GridImportConfig
+}
+
+export type ProjectDocument = ProjectDocumentV1 | ProjectDocumentV2

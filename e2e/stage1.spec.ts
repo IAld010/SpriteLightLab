@@ -4,7 +4,8 @@ import path from 'node:path'
 
 test('stage 1 imports the demo, groups clips and supports frame interaction', async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('.preview-placeholder')).toBeVisible()
+  await expect(page.getByTestId('project-library')).toBeVisible()
+  await expect(page.locator('.project-card')).toHaveCount(0)
 
   await page.locator('.button-ghost').first().click()
   await expect(page.locator('.action-item')).toHaveCount(2)
@@ -308,4 +309,225 @@ test('zoomed viewport can pan and return to center', async ({ page }) => {
   const centered = await measureVisibleBounds(page)
   expect(Math.abs(centered.centerX - centered.canvasCenterX)).toBeLessThan(5)
   expect(Math.abs(centered.centerY - centered.canvasCenterY)).toBeLessThan(5)
+})
+
+test('project library saves, switches, renames and removes projects', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('project-library')).toBeVisible()
+
+  await page.locator('.button-ghost').first().click()
+  await expect(page.locator('.action-item')).toHaveCount(2)
+  await page.waitForTimeout(900)
+  await page.getByTestId('open-project-library').click()
+  await expect(page.locator('.project-card')).toHaveCount(1)
+
+  await page.locator('.project-card').first().getByRole('button', { name: '重命名' }).click()
+  const renameDialog = page.getByRole('dialog', { name: '重命名项目' })
+  await renameDialog.locator('input').fill('项目 A')
+  await renameDialog.getByRole('button', { name: '保存名称' }).click()
+  await expect(page.locator('.project-card').first()).toContainText('项目 A')
+
+  await page.locator('.button-ghost').nth(1).click()
+  await expect(page.getByTestId('project-library')).toHaveCount(0)
+  await page.waitForTimeout(900)
+  await page.getByTestId('open-project-library').click()
+  await expect(page.locator('.project-card')).toHaveCount(2)
+  await expect(page.locator('.project-card.is-active')).toHaveCount(1)
+
+  const projectA = page.locator('.project-card').filter({ hasText: '项目 A' })
+  await projectA.getByRole('button', { name: '打开项目' }).click()
+  await expect(page.getByTestId('project-library')).toHaveCount(0)
+  await expect(page.locator('.action-item')).toHaveCount(2)
+
+  await page.getByTestId('open-project-library').click()
+  await expect(page.locator('.project-card').filter({ hasText: '项目 A' })).toHaveClass(/is-active/)
+  await page.locator('.project-card').filter({ hasText: '项目 A' }).getByRole('button', { name: '移除' }).click()
+  await expect(page.getByRole('dialog', { name: /移除.*项目 A/ })).toBeVisible()
+  await page.getByRole('button', { name: '确认移除' }).click()
+  await expect(page.getByTestId('project-library')).toHaveCount(0)
+
+  await page.getByTestId('open-project-library').click()
+  await expect(page.locator('.project-card')).toHaveCount(1)
+  await page.reload()
+  await expect(page.locator('.action-item')).toHaveCount(1)
+  await page.getByTestId('open-project-library').click()
+  await expect(page.locator('.project-card')).toHaveCount(1)
+})
+
+test('legacy single-workspace data migrates once and can be removed permanently', async ({ page }) => {
+  await page.goto('/manifest.webmanifest')
+  await page.evaluate(async () => {
+    const pngBytes = Uint8Array.from(
+      atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl8n8sAAAAASUVORK5CYII='),
+      (character) => character.charCodeAt(0),
+    )
+    const file = new File([pngBytes], 'legacy_0001.png', {
+      type: 'image/png',
+      lastModified: 1,
+    })
+    const document = {
+      version: 1,
+      projectName: '旧版单工作区',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      sourceMode: 'frames',
+      sourceName: 'legacy_0001.png',
+      assets: [{ path: 'legacy_0001.png', name: 'legacy_0001.png', kind: 'image' }],
+      frames: [
+        {
+          id: 'frame:legacy',
+          name: 'legacy_0001',
+          source: { id: 'source:legacy', name: 'legacy_0001.png', imageId: 'legacy' },
+          pairingStatus: 'missing',
+        },
+      ],
+      animations: [
+        { id: 'clip:legacy', name: 'legacy', frameIds: ['frame:legacy'], fps: 8, loop: true },
+      ],
+      normalPairing: [{ frameId: 'frame:legacy' }],
+      paletteSources: ['#ff0000'],
+      paletteMode: 'indexed',
+      palettePresets: [
+        {
+          id: 'palette:legacy',
+          name: '默认',
+          entries: [{ source: '#ff0000', target: '#ff0000' }],
+          rules: [],
+          adjustments: {
+            hue: 0,
+            saturation: 1,
+            lightness: 0,
+            contrast: 1,
+            tint: '#ffffff',
+            tintStrength: 0,
+          },
+        },
+      ],
+      activePaletteId: 'palette:legacy',
+      lighting: {
+        ambientColor: '#ffffff',
+        ambientIntensity: 0.34,
+        lights: [],
+      },
+      renderPreferences: {
+        lightingEnabled: true,
+        normalStrength: 1,
+        flipGreen: false,
+        specularEnabled: false,
+        specularStrength: 0.35,
+        pixelPerfect: true,
+      },
+      settings: {
+        backend: 'webgl',
+        textureMode: 'color',
+        background: 'checker',
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+      },
+    }
+
+    const request = indexedDB.open('sprite-light-lab', 2)
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore('workspace', { keyPath: 'id' })
+      request.result.createObjectStore('directory', { keyPath: 'id' })
+    }
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const transaction = db.transaction('workspace', 'readwrite')
+    transaction.objectStore('workspace').put({
+      id: 'last',
+      document,
+      files: [file],
+      savedAt: '2026-01-01T00:00:00.000Z',
+    })
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error)
+    })
+    db.close()
+  })
+
+  await page.goto('/')
+  await expect(page.locator('.action-item')).toHaveCount(1)
+  await page.getByTestId('open-project-library').click()
+  await expect(page.locator('.project-card')).toHaveCount(1)
+  await expect(page.locator('.project-card')).toContainText('旧版单工作区')
+
+  await page.locator('.project-card').getByRole('button', { name: '移除' }).click()
+  await page.getByRole('button', { name: '确认移除' }).click()
+  await expect(page.locator('.project-card')).toHaveCount(0)
+
+  await page.reload()
+  await expect(page.getByTestId('project-library')).toBeVisible()
+  await expect(page.locator('.project-card')).toHaveCount(0)
+})
+
+test('specular strength changes the rendered lighting output', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('.button-ghost').first().click()
+  await expect(page.locator('.action-item')).toHaveCount(2)
+
+  await page.locator('.inspector-tabs-four button').nth(1).click()
+  const canvas = page.locator('.preview-canvas-host canvas')
+  await expect(canvas).toBeVisible()
+  const before = await canvas.screenshot()
+
+  await page.locator('.lighting-panel .range-grid input[type="range"]').nth(1).fill('1')
+  await page.waitForTimeout(300)
+  const after = await canvas.screenshot()
+
+  expect(Buffer.compare(before, after)).not.toBe(0)
+})
+
+test('grid import slices aligned sheets and explains naming and size rules', async ({ page }) => {
+  await page.goto('/')
+  await page.getByTestId('open-grid-import').click()
+  const dialog = page.getByTestId('grid-import-dialog')
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('walk_0001.png')
+  await expect(dialog).toContainText('walk_0001_n.png')
+  await expect(dialog).toContainText('尺寸必须完全一致')
+
+  const fileInputs = dialog.locator('input[type="file"]')
+  await fileInputs.nth(0).setInputFiles(
+    path.join(process.cwd(), 'e2e', 'fixtures', 'alignment', 'horizontal.png'),
+  )
+  await fileInputs.nth(1).setInputFiles(
+    path.join(process.cwd(), 'e2e', 'fixtures', 'alignment', 'horizontal_n.png'),
+  )
+
+  await dialog.getByLabel('帧宽').fill('32')
+  await dialog.getByLabel('帧高').fill('32')
+  await dialog.getByLabel('列数').fill('2')
+  await dialog.getByLabel('行数').fill('2')
+
+  await expect(dialog.locator('.grid-preview-color .grid-cell-overlay')).toHaveCount(4)
+  await expect(dialog.locator('.grid-preview-normal .grid-cell-overlay')).toHaveCount(4)
+  await dialog.getByRole('button', { name: /确认导入 4 帧/ }).click()
+
+  await expect(dialog).toHaveCount(0)
+  await expect(page.locator('.frame-item')).toHaveCount(4)
+  await expect(page.locator('.action-item')).toHaveCount(1)
+  await page.waitForTimeout(900)
+  await page.reload()
+  await expect(page.locator('.frame-item')).toHaveCount(4)
+  await expect(page.locator('.action-item')).toHaveCount(1)
+})
+
+test('grid import blocks color and normal sheets with different dimensions', async ({ page }) => {
+  await page.goto('/')
+  await page.getByTestId('open-grid-import').click()
+  const dialog = page.getByTestId('grid-import-dialog')
+  const fileInputs = dialog.locator('input[type="file"]')
+  await fileInputs.nth(0).setInputFiles(
+    path.join(process.cwd(), 'e2e', 'fixtures', 'alignment', 'horizontal.png'),
+  )
+  await fileInputs.nth(1).setInputFiles(
+    path.join(process.cwd(), 'src', 'assets', 'hero.png'),
+  )
+
+  await expect(dialog.getByText(/法线图尺寸必须与精灵图完全一致/)).toBeVisible()
+  await expect(dialog.getByRole('button', { name: /确认导入/ })).toBeDisabled()
 })

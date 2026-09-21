@@ -1,13 +1,23 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import { ActionSidebar } from './components/ActionSidebar'
+import { GridImportDialog } from './components/GridImportDialog'
 import { InspectorPanel } from './components/InspectorPanel'
 import { PreviewStage } from './components/PreviewStage'
+import { ProjectLibraryPage } from './components/ProjectLibraryPage'
 import { Timeline } from './components/Timeline'
 import { Toolbar } from './components/Toolbar'
 import { createProjectDocument } from './domain/projectDocument'
-import { loadWorkspace, saveWorkspace } from './services/projectPersistence'
+import {
+  deleteProject,
+  loadProject,
+  loadProjectLibrary,
+  projectFilesFromBundle,
+  renameProject,
+  saveProject,
+} from './services/projectPersistence'
 import { getSelectedAction, useEditorStore } from './store/editorStore'
+import { useProjectLibraryStore } from './store/projectLibraryStore'
 import { useProjectStore } from './store/projectStore'
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -25,69 +35,126 @@ function isEditableTarget(target: EventTarget | null): boolean {
 export default function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [rendererStatus, setRendererStatus] = useState('未连接')
+  const [showLibrary, setShowLibrary] = useState(true)
+  const [showGridImport, setShowGridImport] = useState(false)
+  const [libraryBusy, setLibraryBusy] = useState(false)
+  const [libraryError, setLibraryError] = useState<string>()
   const hydrated = useRef(false)
+  const switchingProject = useRef(false)
+  const saveQueue = useRef<Promise<void>>(Promise.resolve())
+
   const bundle = useEditorStore((state) => state.bundle)
+  const projectId = useEditorStore((state) => state.projectId)
+  const projectCreatedAt = useEditorStore((state) => state.projectCreatedAt)
   const isImporting = useEditorStore((state) => state.isImporting)
   const isPlaying = useEditorStore((state) => state.isPlaying)
   const notice = useEditorStore((state) => state.notice)
   const importLocalFiles = useEditorStore((state) => state.importLocalFiles)
+  const importProjectFiles = useEditorStore((state) => state.importProjectFiles)
+  const clearProject = useEditorStore((state) => state.clearProject)
   const dismissNotice = useEditorStore((state) => state.dismissNotice)
   const advanceFrame = useEditorStore((state) => state.advanceFrame)
   const setPlaying = useEditorStore((state) => state.setPlaying)
   const action = useEditorStore((state) => getSelectedAction(state))
   const settings = useEditorStore((state) => state.settings)
-  const importProjectFiles = useEditorStore((state) => state.importProjectFiles)
-  const projectName = useProjectStore((state) => state.projectName)
-  const palettePresets = useProjectStore((state) => state.palettePresets)
-  const activePaletteId = useProjectStore((state) => state.activePaletteId)
-  const lighting = useProjectStore((state) => state.lighting)
-  const renderPreferences = useProjectStore((state) => state.renderPreferences)
+
+  const projects = useProjectLibraryStore((state) => state.projects)
+  const activeProjectId = useProjectLibraryStore((state) => state.activeProjectId)
+  const upsertProject = useProjectLibraryStore((state) => state.upsertProject)
+  const refreshLibrary = useProjectLibraryStore((state) => state.refresh)
+  const setStoreError = useProjectLibraryStore((state) => state.setError)
+  const activateProject = useProjectLibraryStore((state) => state.setActiveProjectId)
+
+  const persistCurrentProject = useCallback(async (): Promise<void> => {
+    const editor = useEditorStore.getState()
+    const project = useProjectStore.getState()
+    if (!editor.bundle || !editor.projectId) {
+      return
+    }
+    const document = createProjectDocument(
+      editor.bundle,
+      {
+        projectName: project.projectName,
+        palettePresets: project.palettePresets,
+        activePaletteId: project.activePaletteId,
+        lighting: project.lighting,
+        renderPreferences: project.renderPreferences,
+      },
+      editor.settings,
+    )
+    const summary = await saveProject({
+      id: editor.projectId,
+      createdAt: editor.projectCreatedAt ?? document.createdAt,
+      document,
+      files: projectFilesFromBundle(editor.bundle),
+    })
+    upsertProject(summary, true)
+  }, [upsertProject])
+
+  const flushCurrentProject = useCallback(async (): Promise<void> => {
+    saveQueue.current = saveQueue.current.catch(() => undefined).then(persistCurrentProject)
+    await saveQueue.current
+  }, [persistCurrentProject])
 
   useEffect(() => {
     let cancelled = false
-    void loadWorkspace()
-      .then(async (workspace) => {
-        if (!cancelled && workspace && workspace.files.length > 0) {
-          await importProjectFiles(workspace.files, workspace.document)
+    void (async () => {
+      try {
+        const library = await loadProjectLibrary()
+        if (cancelled) {
+          return
         }
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        hydrated.current = true
-      })
+        useProjectLibraryStore.setState({
+          projects: library.projects,
+          activeProjectId: library.activeProjectId,
+          initialized: true,
+          isLoading: false,
+          error: undefined,
+        })
+        if (library.activeProjectId) {
+          const stored = await loadProject(library.activeProjectId)
+          if (!cancelled && stored) {
+            await importProjectFiles(stored.files, stored.document, {
+              projectId: stored.id,
+              createdAt: stored.createdAt,
+            })
+            if (!cancelled) {
+              setShowLibrary(false)
+            }
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : '项目库读取失败。'
+          setStoreError(message)
+          setShowLibrary(true)
+        }
+      } finally {
+        if (!cancelled) {
+          hydrated.current = true
+        }
+      }
+    })()
     return () => {
       cancelled = true
     }
-  }, [importProjectFiles])
+  }, [importProjectFiles, setStoreError])
 
   useEffect(() => {
-    if (!hydrated.current || !bundle) {
+    if (!hydrated.current || switchingProject.current || !bundle || !projectId) {
       return
     }
     const timeout = window.setTimeout(() => {
-      const document = createProjectDocument(
-        bundle,
-        {
-          projectName,
-          palettePresets,
-          activePaletteId,
-          lighting,
-          renderPreferences,
-        },
-        settings,
-      )
-      void saveWorkspace(document, bundle)
+      saveQueue.current = saveQueue.current.catch(() => undefined).then(persistCurrentProject)
     }, 700)
     return () => window.clearTimeout(timeout)
-  }, [
-    activePaletteId,
-    bundle,
-    lighting,
-    palettePresets,
-    projectName,
-    renderPreferences,
-    settings,
-  ])
+  }, [bundle, persistCurrentProject, projectCreatedAt, projectId, settings])
+
+  useEffect(() => {
+    if (hydrated.current && projectId) {
+      setShowLibrary(false)
+    }
+  }, [projectId])
 
   useEffect(() => {
     if (!isPlaying || !action || action.frameIds.length === 0) {
@@ -131,6 +198,102 @@ export default function App() {
     return () => window.clearTimeout(timeout)
   }, [dismissNotice, notice])
 
+  const openProject = async (nextProjectId: string) => {
+    if (libraryBusy) {
+      return
+    }
+    if (nextProjectId === projectId) {
+      setShowLibrary(false)
+      return
+    }
+    setLibraryBusy(true)
+    setLibraryError(undefined)
+    switchingProject.current = true
+    try {
+      await flushCurrentProject()
+      const stored = await loadProject(nextProjectId)
+      if (!stored) {
+        throw new Error('项目数据不存在，可能已被移除。')
+      }
+      await activateProject(stored.id)
+      await importProjectFiles(stored.files, stored.document, {
+        projectId: stored.id,
+        createdAt: stored.createdAt,
+      })
+      setShowLibrary(false)
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : '项目打开失败。')
+    } finally {
+      switchingProject.current = false
+      setLibraryBusy(false)
+    }
+  }
+
+  const removeProject = async (removingProjectId: string) => {
+    if (libraryBusy) {
+      return
+    }
+    const removingActive = removingProjectId === projectId
+    setLibraryBusy(true)
+    setLibraryError(undefined)
+    switchingProject.current = true
+    try {
+      if (removingActive) {
+        clearProject()
+        useProjectStore.getState().resetProjectState()
+        await saveQueue.current.catch(() => undefined)
+      }
+      await deleteProject(removingProjectId)
+      const library = await loadProjectLibrary()
+      useProjectLibraryStore.setState({
+        projects: library.projects,
+        activeProjectId: library.activeProjectId,
+      })
+      if (removingActive) {
+        const nextProject = library.projects[0]
+        if (nextProject) {
+          await activateProject(nextProject.id)
+          const stored = await loadProject(nextProject.id)
+          if (stored) {
+            await importProjectFiles(stored.files, stored.document, {
+              projectId: stored.id,
+              createdAt: stored.createdAt,
+            })
+            setShowLibrary(false)
+          }
+        } else {
+          await activateProject(undefined)
+          setShowLibrary(true)
+        }
+      }
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : '项目移除失败。')
+      await refreshLibrary()
+    } finally {
+      switchingProject.current = false
+      setLibraryBusy(false)
+    }
+  }
+
+  const renameLibraryProject = async (renamingProjectId: string, name: string) => {
+    setLibraryBusy(true)
+    setLibraryError(undefined)
+    try {
+      const summary = await renameProject(renamingProjectId, name)
+      if (!summary) {
+        throw new Error('项目数据不存在，可能已被移除。')
+      }
+      upsertProject(summary, summary.id === projectId)
+      if (summary.id === projectId) {
+        useProjectStore.getState().setProjectName(summary.name)
+      }
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : '项目重命名失败。')
+    } finally {
+      setLibraryBusy(false)
+    }
+  }
+
   return (
     <div
       className="app-shell"
@@ -150,17 +313,39 @@ export default function App() {
         void importLocalFiles(Array.from(event.dataTransfer.files))
       }}
     >
-      <Toolbar onPickFiles={(files) => void importLocalFiles(files)} />
+      <Toolbar
+        onPickFiles={(files) => void importLocalFiles(files)}
+        onOpenGridImport={() => setShowGridImport(true)}
+        onOpenLibrary={() => setShowLibrary(true)}
+        projectCount={projects.length}
+      />
 
-      <main className="workspace">
-        <ActionSidebar />
-        <section className="center-workspace">
-          <PreviewStage onStatusChange={setRendererStatus} />
-          <Timeline />
-        </section>
-        <InspectorPanel rendererStatus={rendererStatus} />
-      </main>
+      {showLibrary ? (
+        <ProjectLibraryPage
+          projects={projects}
+          activeProjectId={activeProjectId}
+          busy={libraryBusy}
+          error={libraryError}
+          onOpenProject={(id) => void openProject(id)}
+          onRemoveProject={(id) => void removeProject(id)}
+          onRenameProject={(id, name) => void renameLibraryProject(id, name)}
+          onClose={() => setShowLibrary(false)}
+        />
+      ) : (
+        <main className="workspace">
+          <ActionSidebar />
+          <section className="center-workspace">
+            <PreviewStage onStatusChange={setRendererStatus} />
+            <Timeline />
+          </section>
+          <InspectorPanel
+            rendererStatus={rendererStatus}
+            onOpenLibrary={() => setShowLibrary(true)}
+          />
+        </main>
+      )}
 
+      {showGridImport && <GridImportDialog onClose={() => setShowGridImport(false)} />}
       {(isImporting || isDragging) && (
         <div className={`drop-overlay ${isDragging ? 'is-dragging' : ''}`}>
           <div className="drop-card">

@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultLighting, createDefaultPreferences } from '../domain/defaults'
 import { createPalettePreset } from '../domain/palette'
-import { createProjectDocument, parseProjectDocument, serializeProjectDocument } from '../domain/projectDocument'
-import type { AssetBundle } from '../domain/types'
+import {
+  createProjectDocument,
+  parseProjectDocument,
+  serializeProjectDocument,
+} from '../domain/projectDocument'
+import type { AssetBundle, ProjectDocumentV1 } from '../domain/types'
 
 function bundle(): AssetBundle {
   const file = new File(['pixel'], 'hero_0001.png', { type: 'image/png' })
@@ -34,7 +38,7 @@ function bundle(): AssetBundle {
 }
 
 describe('project document', () => {
-  it('round-trips version 1 project configuration', () => {
+  it('round-trips the upgraded version 2 project configuration', () => {
     const document = createProjectDocument(
       bundle(),
       {
@@ -44,14 +48,81 @@ describe('project document', () => {
         lighting: createDefaultLighting(),
         renderPreferences: createDefaultPreferences(),
       },
-      { backend: 'webgl', textureMode: 'color', background: 'checker', zoom: 1,
+      {
+        backend: 'webgl',
+        textureMode: 'color',
+        background: 'checker',
+        zoom: 1,
         panX: 0,
-        panY: 0 },
+        panY: 0,
+      },
     )
 
     const restored = parseProjectDocument(serializeProjectDocument(document))
-    expect(restored.version).toBe(1)
+    expect(restored.version).toBe(2)
     expect(restored.projectName).toBe('测试角色')
     expect(restored.normalPairing[0].normalId).toBe('normal:1')
   })
-})
+
+  it('upgrades version 1 documents without losing settings', () => {
+    const current = createProjectDocument(
+      bundle(),
+      {
+        projectName: '旧项目',
+        palettePresets: [createPalettePreset('p:1', '默认', ['#ff0000'])],
+        activePaletteId: 'p:1',
+        lighting: createDefaultLighting(),
+        renderPreferences: createDefaultPreferences(),
+      },
+      {
+        backend: 'webgl',
+        textureMode: 'color',
+        background: 'checker',
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+      },
+    )
+    const legacy = { ...current, version: 1 } as ProjectDocumentV1
+    const restored = parseProjectDocument(JSON.stringify(legacy))
+
+    expect(restored.version).toBe(2)
+    expect(restored.projectName).toBe('旧项目')
+    expect(restored.settings.panX).toBe(0)
+    expect(restored.gridConfig).toBeUndefined()
+  })
+
+  it('persists grid import configuration in version 2 documents', () => {
+    const gridConfig = {
+      frameWidth: 32,
+      frameHeight: 48,
+      columns: 4,
+      rows: 4,
+      offsetX: 2,
+      offsetY: 3,
+      spacingX: 1,
+      spacingY: 1,
+      frameOrder: 'column-major' as const,
+    }
+    const document = createProjectDocument(
+      { ...bundle(), gridConfig },
+      {
+        projectName: '网格项目',
+        palettePresets: [createPalettePreset('p:1', '默认', ['#ff0000'])],
+        activePaletteId: 'p:1',
+        lighting: createDefaultLighting(),
+        renderPreferences: createDefaultPreferences(),
+      },
+      {
+        backend: 'webgl',
+        textureMode: 'color',
+        background: 'checker',
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+      },
+    )
+
+    const restored = parseProjectDocument(serializeProjectDocument(document))
+    expect(restored.gridConfig).toEqual(gridConfig)
+  })})

@@ -1,4 +1,5 @@
 import { AtlasParseError, atlasContainsRotatedFrames, parseAtlasJson, validateAtlasLayout } from './atlasParser'
+import { createGridBundle } from './gridImport'
 import { groupFramesIntoAnimations, isNormalFileName, pairFrameImages } from './frameImport'
 import { analyzeBundlePalette } from './paletteAnalysis'
 import { baseFileName, fileExtension, normalizePath, slugify, stripExtension, uniqueId } from './pathUtils'
@@ -250,15 +251,24 @@ async function importAtlas(
   }
 
   const layoutIssues = normalSource ? validateAtlasLayout(colorSource.data, normalSource.data) : []
-  const layoutValid = layoutIssues.length === 0
-  if (!layoutValid) {
+  const imageSizeMismatch =
+    normalImage &&
+    (normalImage.width !== colorImage.width || normalImage.height !== colorImage.height)
+  const layoutValid = layoutIssues.length === 0 && !imageSizeMismatch
+  if (layoutIssues.length > 0) {
     warnings.push({
       code: 'atlas-layout-mismatch',
       severity: 'error',
       message: `颜色图集与法线图集布局不一致：${layoutIssues.join(' ')}`,
     })
   }
-
+  if (imageSizeMismatch && normalImage) {
+    warnings.push({
+      code: 'normal-image-size-mismatch',
+      severity: 'error',
+      message: `法线图尺寸必须与精灵图完全一致：精灵图 ${colorImage.width}×${colorImage.height}，法线图 ${normalImage.width}×${normalImage.height}。`,
+    })
+  }
   const sourceFrames = colorSource.data.frames
   const normalCandidates: TextureRef[] = []
   if (normalImage && layoutValid) {
@@ -299,7 +309,7 @@ async function importAtlas(
       name: source.name,
       source,
       normal,
-      pairingStatus: normal ? 'matched' : layoutIssues.length > 0 ? 'mismatch' : 'missing',
+      pairingStatus: normal ? 'matched' : layoutIssues.length > 0 || imageSizeMismatch ? 'mismatch' : 'missing',
       durationMs: frame.durationMs,
     }
   })
@@ -396,23 +406,72 @@ export async function importFiles(files: File[]): Promise<AssetBundle> {
   return importFrames(imageFiles, unsupported)
 }
 
+export async function importGridFiles(
+  colorFile: File,
+  normalFile: File | undefined,
+  config: import('./types').GridImportConfig,
+): Promise<AssetBundle> {
+  const colorImage = await readRuntimeImage(colorFile)
+  const normalImage = normalFile ? await readRuntimeImage(normalFile) : undefined
+  return analyzeBundlePalette(
+    createGridBundle({
+      colorImage,
+      normalImage,
+      config,
+    }),
+  )
+}
 export function updateFrameNormal(
   bundle: AssetBundle,
   frameId: string,
   candidate: TextureRef | undefined,
 ): AssetBundle {
-  const frames = bundle.frames.map((frame) =>
-    frame.id === frameId
-      ? {
-          ...frame,
-          normal: candidate,
-          pairingStatus: candidate ? ('manual' as const) : ('missing' as const),
-        }
-      : frame,
-  )
-  return { ...bundle, frames }
-}
+  const frame = bundle.frames.find((item) => item.id === frameId)
+  const colorImage = frame
+    ? bundle.images.find((image) => image.id === frame.source.imageId)
+    : undefined
+  const normalImage = candidate
+    ? bundle.images.find((image) => image.id === candidate.imageId)
+    : undefined
+  const sizeMismatch =
+    candidate &&
+    colorImage &&
+    normalImage &&
+    (colorImage.width !== normalImage.width || colorImage.height !== normalImage.height)
 
+  const frames = bundle.frames.map((item) =>
+    item.id === frameId
+      ? {
+          ...item,
+          normal: candidate && !sizeMismatch ? candidate : undefined,
+          pairingStatus: candidate
+            ? sizeMismatch
+              ? ('mismatch' as const)
+              : ('manual' as const)
+            : ('missing' as const),
+        }
+      : item,
+  )
+  const warnings = sizeMismatch
+    ? [
+        ...bundle.warnings.filter(
+          (warning) =>
+            warning.code !== 'normal-pairing-size-mismatch' || warning.frameId !== frameId,
+        ),
+        {
+          code: 'normal-pairing-size-mismatch',
+          severity: 'error' as const,
+          frameId,
+          message: `法线图尺寸必须与精灵图完全一致：精灵图 ${colorImage.width}×${colorImage.height}，法线图 ${normalImage.width}×${normalImage.height}。`,
+        },
+      ]
+    : bundle.warnings.filter(
+        (warning) =>
+          warning.code !== 'normal-pairing-size-mismatch' || warning.frameId !== frameId,
+      )
+
+  return { ...bundle, frames, warnings }
+}
 export function collectCurrentWarnings(bundle: AssetBundle): ImportWarning[] {
   const base = bundle.warnings.filter(
     (warning) =>

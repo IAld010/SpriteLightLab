@@ -6,9 +6,7 @@ import {
   createPalettePreset,
   normalizeHex,
 } from '../domain/palette'
-import type {
-  ProjectStateSnapshot,
-} from '../domain/projectDocument'
+import type { ProjectStateSnapshot } from '../domain/projectDocument'
 import type {
   AssetBundle,
   ColorAdjustments,
@@ -33,6 +31,18 @@ function makeId(prefix: string): string {
 
 function cloneSnapshot(snapshot: UndoSnapshot): UndoSnapshot {
   return JSON.parse(JSON.stringify(snapshot)) as UndoSnapshot
+}
+
+function createInitialProjectState() {
+  return {
+    projectName: '未命名精灵项目',
+    palettePresets: [createPalettePreset('palette:default', '默认', [])],
+    activePaletteId: 'palette:default',
+    lighting: createDefaultLighting(),
+    renderPreferences: createDefaultPreferences(),
+    past: [] as UndoSnapshot[],
+    future: [] as UndoSnapshot[],
+  }
 }
 
 interface ProjectState {
@@ -64,6 +74,7 @@ interface ProjectState {
   removeLight: (lightId: string) => void
   selectLight: (lightId?: string) => void
   updateRenderPreferences: (patch: Partial<RenderPreferences>) => void
+  resetProjectState: () => void
   undo: () => void
   redo: () => void
 }
@@ -86,7 +97,10 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     }))
   }
 
-  const updateActivePalette = (update: (palette: PalettePreset) => PalettePreset, history = true) => {
+  const updateActivePalette = (
+    update: (palette: PalettePreset) => PalettePreset,
+    history = true,
+  ) => {
     if (history) {
       commit()
     }
@@ -98,13 +112,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
   }
 
   return {
-    projectName: '未命名精灵项目',
-    palettePresets: [createPalettePreset('palette:default', '默认', [])],
-    activePaletteId: 'palette:default',
-    lighting: createDefaultLighting(),
-    renderPreferences: createDefaultPreferences(),
-    past: [],
-    future: [],
+    ...createInitialProjectState(),
 
     initializeFromBundle: (bundle) => {
       const defaultPalette = createPalettePreset(
@@ -123,13 +131,13 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       })
     },
 
-    applyProjectState: (snapshot) => {
+    applyProjectState: (snapshotValue) => {
       set({
-        projectName: snapshot.projectName,
-        palettePresets: snapshot.palettePresets,
-        activePaletteId: snapshot.activePaletteId,
-        lighting: snapshot.lighting,
-        renderPreferences: snapshot.renderPreferences,
+        projectName: snapshotValue.projectName,
+        palettePresets: snapshotValue.palettePresets,
+        activePaletteId: snapshotValue.activePaletteId,
+        lighting: snapshotValue.lighting,
+        renderPreferences: snapshotValue.renderPreferences,
         past: [],
         future: [],
       })
@@ -343,6 +351,10 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     updateRenderPreferences: (patch) => {
       commit()
       set((state) => ({ renderPreferences: { ...state.renderPreferences, ...patch } }))
+    },
+
+    resetProjectState: () => {
+      set(createInitialProjectState())
     },
 
     undo: () => {

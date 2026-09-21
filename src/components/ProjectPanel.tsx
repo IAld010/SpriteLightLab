@@ -12,14 +12,16 @@ import {
   importProjectZip,
 } from '../services/projectIO'
 import { useEditorStore } from '../store/editorStore'
+import { ImportRulesPanel } from './ImportRulesPanel'
 import { useProjectStore } from '../store/projectStore'
 import { downloadBlob, downloadText } from '../utils/download'
 
 interface ProjectPanelProps {
   rendererStatus: string
+  onOpenLibrary: () => void
 }
 
-export function ProjectPanel({ rendererStatus }: ProjectPanelProps) {
+export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProps) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<string>()
   const bundle = useEditorStore((state) => state.bundle)
@@ -80,6 +82,14 @@ export function ProjectPanel({ rendererStatus }: ProjectPanelProps) {
           <span>隐私</span>
           <strong>仅本地处理</strong>
         </div>
+      </section>
+
+      <ImportRulesPanel />
+
+      <section className="inspector-section">
+        <button type="button" className="button full-width-button" onClick={onOpenLibrary}>
+          {'\u6253\u5f00\u9879\u76ee\u5e93\u4e0e\u79fb\u9664\u9879\u76ee'}
+        </button>
       </section>
 
       <section className="inspector-section">

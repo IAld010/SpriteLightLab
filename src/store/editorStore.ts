@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createDemoFiles, createFullColorDemoFiles } from '../demo/createDemoFiles'
 import { importProjectZip } from '../services/projectIO'
+import { createProjectId } from '../services/projectPersistence'
 import { useProjectStore } from './projectStore'
 import {
   applyProjectDocumentToBundle,
@@ -10,6 +11,7 @@ import {
   ImportError,
   collectCurrentWarnings,
   importFiles as importAssetFiles,
+  importGridFiles as importGridAssetFiles,
   updateFrameNormal,
 } from '../domain/importAssets'
 import type {
@@ -17,10 +19,11 @@ import type {
   AssetBundle,
   BackendPreference,
   EditorSettings,
+  GridImportConfig,
   ImportWarning,
   PreviewBackground,
   PreviewTextureMode,
-  ProjectDocumentV1,
+  ProjectDocument,
   TextureRef,
 } from '../domain/types'
 
@@ -29,8 +32,15 @@ export interface EditorNotice {
   message: string
 }
 
+export interface ProjectSession {
+  projectId: string
+  createdAt: string
+}
+
 interface EditorState {
   bundle?: AssetBundle
+  projectId?: string
+  projectCreatedAt?: string
   warnings: ImportWarning[]
   selectedActionId?: string
   currentFrameIndex: number
@@ -39,8 +49,14 @@ interface EditorState {
   settings: EditorSettings
   notice?: EditorNotice
   importLocalFiles: (files: File[]) => Promise<void>
-  importProjectFiles: (files: File[], document: ProjectDocumentV1) => Promise<void>
-  applyProjectDocument: (document: ProjectDocumentV1) => void
+  importGridFiles: (
+    colorFile: File,
+    normalFile: File | undefined,
+    config: GridImportConfig,
+  ) => Promise<boolean>
+  importProjectFiles: (files: File[], document: ProjectDocument, session?: ProjectSession) => Promise<void>
+  applyProjectDocument: (document: ProjectDocument) => void
+  clearProject: () => void
   loadDemo: () => Promise<void>
   loadFullColorDemo: () => Promise<void>
   loadDefoldSample: () => Promise<void>
@@ -75,6 +91,31 @@ function mergeSettings(base: EditorSettings, imported?: Partial<EditorSettings>)
   }
 }
 
+function gridFilesFromDocument(
+  files: File[],
+  document: ProjectDocument,
+): { colorFile: File; normalFile?: File } | undefined {
+  if (document.version !== 2 || !document.gridConfig) {
+    return undefined
+  }
+  const imageAssets = document.assets.filter((asset) => asset.kind === 'image')
+  const colorAsset =
+    imageAssets.find((asset) => asset.name === document.sourceName) ?? imageAssets[0]
+  if (!colorAsset) {
+    return undefined
+  }
+  const normalAsset = imageAssets.find((asset) => asset !== colorAsset)
+  const colorFile = files.find((file) => file.name === colorAsset.name)
+  if (!colorFile) {
+    return undefined
+  }
+  return {
+    colorFile,
+    normalFile: normalAsset
+      ? files.find((file) => file.name === normalAsset.name)
+      : undefined,
+  }
+}
 function selectedActionFor(bundle: AssetBundle, actionId?: string): AnimationClip | undefined {
   return bundle.animations.find((animation) => animation.id === actionId) ?? bundle.animations[0]
 }
@@ -101,9 +142,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     try {
       const bundle = await importAssetFiles(files)
       const warnings = collectCurrentWarnings(bundle)
+      const projectId = createProjectId()
+      const projectCreatedAt = new Date().toISOString()
       useProjectStore.getState().initializeFromBundle(bundle)
       set({
         bundle,
+        projectId,
+        projectCreatedAt,
         warnings,
         selectedActionId: bundle.animations[0]?.id,
         currentFrameIndex: 0,
@@ -125,18 +170,58 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
 
-  importProjectFiles: async (files, document) => {
+  importGridFiles: async (colorFile, normalFile, config) => {
+    set({ isImporting: true, notice: { tone: 'info', message: '正在按网格切图…' } })
+    try {
+      const bundle = await importGridAssetFiles(colorFile, normalFile, config)
+      const warnings = collectCurrentWarnings(bundle)
+      const projectId = createProjectId()
+      const projectCreatedAt = new Date().toISOString()
+      useProjectStore.getState().initializeFromBundle(bundle)
+      set({
+        bundle,
+        projectId,
+        projectCreatedAt,
+        warnings,
+        selectedActionId: bundle.animations[0]?.id,
+        currentFrameIndex: 0,
+        isPlaying: false,
+        isImporting: false,
+        notice: {
+          tone: warnings.some((warning) => warning.severity === 'error') ? 'warning' : 'success',
+          message: `网格导入完成：${bundle.frames.length} 帧、${bundle.animations.length} 个动作。`,
+        },
+      })
+      return true
+    } catch (error) {
+      set({
+        isImporting: false,
+        notice: {
+          tone: 'error',
+          message: error instanceof Error ? error.message : '网格切图失败，请检查参数。',
+        },
+      })
+      return false
+    }
+  },
+  importProjectFiles: async (files, document, session) => {
     if (files.length === 0) {
       return
     }
     set({ isImporting: true, notice: { tone: 'info', message: '\u6b63\u5728\u6062\u590d\u9879\u76ee\u4e0e\u7d20\u6750\u2026' } })
     try {
-      const imported = await importAssetFiles(files)
+      const gridFiles = gridFilesFromDocument(files, document)
+      const imported =
+        gridFiles && document.version === 2 && document.gridConfig
+          ? await importGridAssetFiles(gridFiles.colorFile, gridFiles.normalFile, document.gridConfig)
+          : await importAssetFiles(files)
       const bundle = applyProjectDocumentToBundle(imported, document)
       useProjectStore.getState().applyProjectState(projectStateFromDocument(document))
       const warnings = collectCurrentWarnings(bundle)
       set({
         bundle,
+        projectId: session?.projectId ?? createProjectId(),
+        projectCreatedAt: session?.createdAt ?? new Date().toISOString(),
         warnings,
         selectedActionId: bundle.animations[0]?.id,
         currentFrameIndex: 0,
@@ -172,6 +257,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       isPlaying: false,
       settings: mergeSettings(get().settings, document.settings),
       notice: { tone: 'success', message: '\u9879\u76ee\u914d\u7f6e\u5df2\u5e94\u7528\u5230\u5f53\u524d\u7d20\u6750\u3002' },
+    })
+  },
+
+  clearProject: () => {
+    set({
+      bundle: undefined,
+      projectId: undefined,
+      projectCreatedAt: undefined,
+      warnings: [],
+      selectedActionId: undefined,
+      currentFrameIndex: 0,
+      isPlaying: false,
+      isImporting: false,
+      notice: undefined,
     })
   },
 
@@ -336,16 +435,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return
     }
     const nextBundle = updateFrameNormal(bundle, frameId, candidate)
+    const nextFrame = nextBundle.frames.find((frame) => frame.id === frameId)
+    const sizeMismatch = candidate && nextFrame?.pairingStatus === 'mismatch'
     set({
       bundle: nextBundle,
       warnings: collectCurrentWarnings(nextBundle),
       notice: {
-        tone: candidate ? 'success' : 'warning',
-        message: candidate ? '已手工更新法线图配对。' : '已清除法线图配对。',
+        tone: sizeMismatch ? 'error' : candidate ? 'success' : 'warning',
+        message: sizeMismatch
+          ? '法线图尺寸与精灵图不一致，已阻止配对。'
+          : candidate
+            ? '已手工更新法线图配对。'
+            : '已清除法线图配对。',
       },
     })
   },
-
   setBackend: (backend) => {
     set((state) => ({ settings: { ...state.settings, backend } }))
   },

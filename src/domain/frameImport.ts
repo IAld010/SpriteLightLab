@@ -77,9 +77,20 @@ export function pairFrameImages(
     const key = colorBaseName(image.path)
     const candidates = normalByBase.get(key) ?? []
     const normal = candidates.find((candidate) => !usedNormals.has(candidate.id))
+    const sizeMismatch =
+      normal && (normal.width !== image.width || normal.height !== image.height)
 
-    if (normal) {
+    if (normal && !sizeMismatch) {
       usedNormals.add(normal.id)
+    }
+
+    if (sizeMismatch && normal) {
+      warnings.push({
+        code: 'frame-size-mismatch',
+        severity: 'error',
+        path: image.path,
+        message: `${image.name} 与 ${normal.name} 的像素尺寸不一致：精灵图 ${image.width}×${image.height}，法线图 ${normal.width}×${normal.height}。颜色图与法线图必须尺寸完全相同。`,
+      })
     }
 
     if (candidates.length > 1) {
@@ -92,7 +103,7 @@ export function pairFrameImages(
     }
 
     const frameId = uniqueId('frame', image.id)
-    if (!normal) {
+    if (!normal || sizeMismatch) {
       warnings.push({
         code: 'missing-normal',
         severity: 'warning',
@@ -106,8 +117,8 @@ export function pairFrameImages(
       id: frameId,
       name: stripExtension(baseFileName(image.name)),
       source: textureRefForImage(image),
-      normal: normal ? textureRefForImage(normal) : undefined,
-      pairingStatus: normal ? 'matched' : 'missing',
+      normal: normal && !sizeMismatch ? textureRefForImage(normal) : undefined,
+      pairingStatus: normal && !sizeMismatch ? 'matched' : sizeMismatch ? 'mismatch' : 'missing',
     } satisfies PreviewFrame
   })
 

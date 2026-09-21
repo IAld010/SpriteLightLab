@@ -4,11 +4,11 @@ import {
   projectStateFromDocument,
   serializeProjectDocument,
 } from '../domain/projectDocument'
-import type { AssetBundle, ProjectDocumentV1 } from '../domain/types'
+import type { AssetBundle, ProjectDocument } from '../domain/types'
 import { createZip, readZipAsync, type ZipEntry } from '../domain/zip'
 
 export interface PortableProject {
-  document: ProjectDocumentV1
+  document: ProjectDocument
   files: File[]
 }
 
@@ -21,8 +21,8 @@ interface JsonAsset {
 
 interface PortableJson {
   format: 'sprite-light-lab-portable'
-  version: 1
-  document: ProjectDocumentV1
+  version: 1 | 2
+  document: ProjectDocument
   assets: JsonAsset[]
 }
 
@@ -47,12 +47,12 @@ function collectBundleFiles(bundle: AssetBundle): Array<{ path: string; file: Fi
   ]
 }
 
-export function exportReferenceProject(document: ProjectDocumentV1): string {
+export function exportReferenceProject(document: ProjectDocument): string {
   return serializeProjectDocument(document)
 }
 
 export async function exportPortableJson(
-  document: ProjectDocumentV1,
+  document: ProjectDocument,
   bundle: AssetBundle,
 ): Promise<string> {
   const assets: JsonAsset[] = []
@@ -66,7 +66,7 @@ export async function exportPortableJson(
   }
   const portable: PortableJson = {
     format: 'sprite-light-lab-portable',
-    version: 1,
+    version: 2,
     document,
     assets,
   }
@@ -74,7 +74,7 @@ export async function exportPortableJson(
 }
 
 export async function exportProjectZip(
-  document: ProjectDocumentV1,
+  document: ProjectDocument,
   bundle: AssetBundle,
 ): Promise<Uint8Array> {
   const entries: ZipEntry[] = [
@@ -96,7 +96,7 @@ export function importPortableJson(content: string): PortableProject {
   const parsed = JSON.parse(content) as Partial<PortableJson>
   if (
     parsed.format !== 'sprite-light-lab-portable' ||
-    parsed.version !== 1 ||
+    (parsed.version !== 1 && parsed.version !== 2) ||
     !parsed.document ||
     !Array.isArray(parsed.assets)
   ) {
@@ -135,6 +135,6 @@ export async function importProjectZip(input: ArrayBuffer | Uint8Array): Promise
   return { document, files }
 }
 
-export function projectStateFromPortable(document: ProjectDocumentV1) {
+export function projectStateFromPortable(document: ProjectDocument) {
   return projectStateFromDocument(document)
 }

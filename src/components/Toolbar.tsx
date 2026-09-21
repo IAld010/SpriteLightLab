@@ -8,6 +8,9 @@ import type { BackendPreference } from '../domain/types'
 
 interface ToolbarProps {
   onPickFiles: (files: File[]) => void
+  onOpenGridImport: () => void
+  onOpenLibrary: () => void
+  projectCount: number
 }
 
 const directoryPicker = (window as Window & {
@@ -31,7 +34,7 @@ async function readDirectory(directory: FileSystemDirectoryHandle): Promise<File
   return files
 }
 
-export function Toolbar({ onPickFiles }: ToolbarProps) {
+export function Toolbar({ onPickFiles, onOpenGridImport, onOpenLibrary, projectCount }: ToolbarProps) {
   const fileInput = useRef<HTMLInputElement>(null)
   const projectInput = useRef<HTMLInputElement>(null)
   const backend = useEditorStore((state) => state.settings.backend)
@@ -87,7 +90,14 @@ export function Toolbar({ onPickFiles }: ToolbarProps) {
         >
           选择素材文件
         </button>
-        <button className="button button-ghost" type="button" onClick={() => void loadDemo()}>
+        <button
+          className="button"
+          type="button"
+          onClick={onOpenGridImport}
+          data-testid="open-grid-import"
+        >
+          {'\u5927\u56fe\u88c1\u5207'}
+        </button>        <button className="button button-ghost" type="button" onClick={() => void loadDemo()}>
           载入演示
         </button>
         <button className="button button-ghost" type="button" onClick={() => void loadFullColorDemo()}>
@@ -99,6 +109,14 @@ export function Toolbar({ onPickFiles }: ToolbarProps) {
         <button className="button" type="button" onClick={() => projectInput.current?.click()}>
 
           {'\u5bfc\u5165\u9879\u76ee\u5305'}
+        </button>
+        <button
+          className="button"
+          type="button"
+          onClick={onOpenLibrary}
+          data-testid="open-project-library"
+        >
+          {'\u9879\u76ee\u5e93'} {projectCount > 0 ? `(${projectCount})` : ''}
         </button>
         <input
           ref={projectInput}

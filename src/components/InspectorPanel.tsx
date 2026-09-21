@@ -6,15 +6,18 @@ import { PalettePanel } from './PalettePanel'
 
 interface InspectorPanelProps {
   rendererStatus: string
+  onOpenLibrary: () => void
 }
 
 type InspectorTab = 'palette' | 'lighting' | 'frame' | 'project'
 
-export function InspectorPanel({ rendererStatus }: InspectorPanelProps) {
+export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanelProps) {
   const [tab, setTab] = useState<InspectorTab>('palette')
   const bundle = useEditorStore((state) => state.bundle)
   const currentFrame = useEditorStore((state) => getCurrentFrame(state))
   const pairNormal = useEditorStore((state) => state.pairNormal)
+
+  const colorImage = bundle?.images.find((image) => image.id === currentFrame?.source.imageId)
 
   if (!bundle || !currentFrame) {
     return (
@@ -88,11 +91,21 @@ export function InspectorPanel({ rendererStatus }: InspectorPanelProps) {
                 }}
               >
                 <option value="">未配对（使用平坦法线）</option>
-                {bundle.normalCandidates.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.name}
-                  </option>
-                ))}
+                {bundle.normalCandidates.map((candidate) => {
+                  const normalImage = bundle.images.find((image) => image.id === candidate.imageId)
+                  const sizeMatches =
+                    !colorImage ||
+                    !normalImage ||
+                    (colorImage.width === normalImage.width &&
+                      colorImage.height === normalImage.height)
+                  return (
+                    <option key={candidate.id} value={candidate.id} disabled={!sizeMatches}>
+                      {candidate.name}
+                      {normalImage ? ` (${normalImage.width}×${normalImage.height})` : ''}
+                      {sizeMatches ? '' : ' 尺寸不匹配'}
+                    </option>
+                  )
+                })}
               </select>
             </label>
             <p className="field-help">
@@ -124,7 +137,7 @@ export function InspectorPanel({ rendererStatus }: InspectorPanelProps) {
         </div>
       )}
 
-      {tab === 'project' && <ProjectPanel rendererStatus={rendererStatus} />}
+      {tab === 'project' && <ProjectPanel rendererStatus={rendererStatus} onOpenLibrary={onOpenLibrary} />}
     </aside>
   )
 }

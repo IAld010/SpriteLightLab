@@ -58,6 +58,8 @@ describe('editor store frame operations', () => {
   beforeEach(() => {
     useEditorStore.setState({
       bundle: makeBundle(),
+      projectId: 'project:test',
+      projectCreatedAt: new Date(0).toISOString(),
       warnings: [],
       selectedActionId: 'clip:1',
       currentFrameIndex: 0,
@@ -84,5 +86,16 @@ describe('editor store frame operations', () => {
     expect(state.bundle?.animations[0].frameIds).toEqual(['frame:2', 'frame:1'])
     expect(state.bundle?.frames[0].pairingStatus).toBe('manual')
     expect(state.warnings.some((warning) => warning.frameId === 'frame:2')).toBe(true)
+  })
+
+  it('clears the active project session without touching project configuration state', () => {
+    useEditorStore.getState().clearProject()
+    const state = useEditorStore.getState()
+
+    expect(state.bundle).toBeUndefined()
+    expect(state.projectId).toBeUndefined()
+    expect(state.projectCreatedAt).toBeUndefined()
+    expect(state.selectedActionId).toBeUndefined()
+    expect(state.isImporting).toBe(false)
   })
 })
