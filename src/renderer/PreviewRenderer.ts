@@ -351,7 +351,7 @@ export class PreviewRenderer implements PreviewExporter {
   private clearSprite(): void {
     if (!this.sprite) return
     this.sprite.parent?.removeChild(this.sprite)
-    this.sprite.destroy(true)
+    this.sprite.destroy({ children: true, texture: false, textureSource: false })
     this.sprite = undefined
   }
 
@@ -382,6 +382,7 @@ export class PreviewRenderer implements PreviewExporter {
   destroy(): void {
     this.currentToken += 1
     unregisterPreviewExporter(this)
+    this.clearSprite()
     if (this.app) {
       this.app.renderer.off('resize', this.resizeHandler)
       this.app.destroy(true, { children: true, texture: false, textureSource: false })

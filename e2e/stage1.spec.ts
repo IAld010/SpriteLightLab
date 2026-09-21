@@ -170,11 +170,12 @@ async function configureDirectionalLight(page: Page, direction: number) {
 async function measureLightBoundary(page: Page) {
   return page.locator('.preview-canvas-host canvas').evaluate(async (canvas) => {
     await new Promise((resolve) => requestAnimationFrame(resolve))
+    const canvasElement = canvas as HTMLCanvasElement
     const output = document.createElement('canvas')
-    output.width = canvas.width
-    output.height = canvas.height
+    output.width = canvasElement.width
+    output.height = canvasElement.height
     const context = output.getContext('2d')!
-    context.drawImage(canvas, 0, 0)
+    context.drawImage(canvasElement, 0, 0)
     const pixels = context.getImageData(0, 0, output.width, output.height).data
     const columns: number[] = []
     const rows: number[] = []
@@ -263,11 +264,12 @@ test('normal map sampling stays aligned with the sprite in both axes', async ({ 
 async function measureVisibleBounds(page: Page) {
   return page.locator('.preview-canvas-host canvas').evaluate(async (canvas) => {
     await new Promise((resolve) => requestAnimationFrame(resolve))
+    const canvasElement = canvas as HTMLCanvasElement
     const output = document.createElement('canvas')
-    output.width = canvas.width
-    output.height = canvas.height
+    output.width = canvasElement.width
+    output.height = canvasElement.height
     const context = output.getContext('2d')!
-    context.drawImage(canvas, 0, 0)
+    context.drawImage(canvasElement, 0, 0)
     const pixels = context.getImageData(0, 0, output.width, output.height).data
     let minX = output.width
     let maxX = -1
@@ -520,7 +522,7 @@ test('point light emission centroid aligns with its drag handle', async ({ page 
   await page.waitForTimeout(350)
 
   const alignment = await page.locator('.preview-canvas-host').evaluate(async (host) => {
-    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     const canvas = host.querySelector('canvas')!
     const handle = document.querySelector('.light-handle.is-selected') as HTMLElement
     const output = document.createElement('canvas')
@@ -697,7 +699,7 @@ test('manual matching page pairs images with different names by drag and drop', 
   await expect(page.getByTestId('image-zoom-dialog')).toContainText('horizontal')
   const zoomImage = page.getByTestId('image-zoom-dialog').locator('img')
   await expect(zoomImage).toBeVisible()
-  await expect.poll(() => zoomImage.evaluate((image) => image.naturalWidth)).toBeGreaterThan(0)
+  await expect.poll(() => zoomImage.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('image-zoom-dialog')).toHaveCount(0)
   await page.getByTestId('confirm-manual-match').click()
