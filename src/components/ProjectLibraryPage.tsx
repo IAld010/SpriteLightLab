@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ProjectSummary } from '../services/projectPersistence'
+import { ImportGuideSummary } from './ImportGuide'
 
 interface ProjectLibraryPageProps {
   projects: ProjectSummary[]
@@ -9,6 +10,7 @@ interface ProjectLibraryPageProps {
   onOpenProject: (projectId: string) => void
   onRemoveProject: (projectId: string) => void
   onRenameProject: (projectId: string, name: string) => void
+  onOpenImportGuide: () => void
   onClose: () => void
 }
 
@@ -33,6 +35,7 @@ export function ProjectLibraryPage({
   onOpenProject,
   onRemoveProject,
   onRenameProject,
+  onOpenImportGuide,
   onClose,
 }: ProjectLibraryPageProps) {
   const [removeTarget, setRemoveTarget] = useState<ProjectSummary>()
@@ -75,6 +78,8 @@ export function ProjectLibraryPage({
           返回编辑器
         </button>
       </div>
+
+      <ImportGuideSummary onOpenDetails={onOpenImportGuide} />
 
       {error && (
         <div className="project-library-error" role="alert">

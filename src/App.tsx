@@ -3,6 +3,7 @@ import './App.css'
 import { ActionSidebar } from './components/ActionSidebar'
 import { AnchorCalibrationPage } from './components/AnchorCalibrationPage'
 import { GridImportDialog } from './components/GridImportDialog'
+import { ImportGuideDialog } from './components/ImportGuide'
 import { ManualMatchPage } from './components/ManualMatchPage'
 import { InspectorPanel } from './components/InspectorPanel'
 import { PreviewStage } from './components/PreviewStage'
@@ -41,6 +42,7 @@ export default function App() {
   const [rendererStatus, setRendererStatus] = useState('未连接')
   const [showLibrary, setShowLibrary] = useState(true)
   const [showGridImport, setShowGridImport] = useState(false)
+  const [showImportGuide, setShowImportGuide] = useState(false)
   const [matchingBundle, setMatchingBundle] = useState<AssetBundle>()
   const [isPreparingImport, setIsPreparingImport] = useState(false)
   const [libraryBusy, setLibraryBusy] = useState(false)
@@ -345,6 +347,7 @@ export default function App() {
         onPickFiles={(files) => void prepareLocalImport(files)}
         onOpenGridImport={() => setShowGridImport(true)}
         onOpenLibrary={() => setShowLibrary(true)}
+        onOpenImportGuide={() => setShowImportGuide(true)}
         projectCount={projects.length}
       />
 
@@ -369,6 +372,7 @@ export default function App() {
           onRemoveProject={(id) => void removeProject(id)}
           onRenameProject={(id, name) => void renameLibraryProject(id, name)}
           onClose={() => setShowLibrary(false)}
+          onOpenImportGuide={() => setShowImportGuide(true)}
         />
       ) : anchorCalibrationEnabled ? (
         <AnchorCalibrationPage />
@@ -387,6 +391,7 @@ export default function App() {
       )}
 
       {showGridImport && <GridImportDialog onClose={() => setShowGridImport(false)} />}
+      {showImportGuide && <ImportGuideDialog onClose={() => setShowImportGuide(false)} />}
       {(isImporting || isPreparingImport || isDragging) && (
         <div className={`drop-overlay ${isDragging ? 'is-dragging' : ''}`}>
           <div className="drop-card">

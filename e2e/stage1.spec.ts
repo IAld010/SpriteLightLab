@@ -2,6 +2,25 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
+
+test('project library shows import rules and the import guide dialog', async ({ page }) => {
+  await page.goto('/')
+  const summary = page.getByTestId('import-guide-summary')
+  await expect(summary).toBeVisible()
+  await expect(summary).toContainText('walk_0001.png')
+  await expect(summary).toContainText('project.zip')
+  await expect(summary).toContainText('assets/')
+
+  await page.getByTestId('open-import-guide').click()
+  const dialog = page.getByTestId('import-guide-dialog')
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('walk_0001_n.png')
+  await expect(dialog).toContainText('project.json')
+  await expect(dialog).toContainText('assets/')
+  await dialog.locator('header .mini-button').click()
+  await expect(dialog).toHaveCount(0)
+})
+
 test('stage 1 imports the demo, groups clips and supports frame interaction', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByTestId('project-library')).toBeVisible()

@@ -1,8 +1,7 @@
-import { useRef } from 'react'
+﻿import { useRef } from 'react'
 import { APP_VERSION } from '../version'
 import { parseProjectDocument } from '../domain/projectDocument'
 import { importPortableJson, importProjectZip } from '../services/projectIO'
-import { saveDirectoryHandle } from '../services/projectPersistence'
 import { useEditorStore } from '../store/editorStore'
 import type { BackendPreference } from '../domain/types'
 
@@ -10,31 +9,17 @@ interface ToolbarProps {
   onPickFiles: (files: File[]) => void
   onOpenGridImport: () => void
   onOpenLibrary: () => void
+  onOpenImportGuide: () => void
   projectCount: number
 }
 
-const directoryPicker = (window as Window & {
-  showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>
-}).showDirectoryPicker
-
-async function readDirectory(directory: FileSystemDirectoryHandle): Promise<File[]> {
-  const files: File[] = []
-  for await (const entry of directory.values()) {
-    if (entry.kind === 'file') {
-      const file = await entry.getFile()
-      Object.defineProperty(file, 'webkitRelativePath', {
-        configurable: true,
-        value: `${directory.name}/${entry.name}`,
-      })
-      files.push(file)
-    } else {
-      files.push(...(await readDirectory(entry)))
-    }
-  }
-  return files
-}
-
-export function Toolbar({ onPickFiles, onOpenGridImport, onOpenLibrary, projectCount }: ToolbarProps) {
+export function Toolbar({
+  onPickFiles,
+  onOpenGridImport,
+  onOpenLibrary,
+  onOpenImportGuide,
+  projectCount,
+}: ToolbarProps) {
   const fileInput = useRef<HTMLInputElement>(null)
   const projectInput = useRef<HTMLInputElement>(null)
   const backend = useEditorStore((state) => state.settings.backend)
@@ -49,22 +34,6 @@ export function Toolbar({ onPickFiles, onOpenGridImport, onOpenLibrary, projectC
   const setBackend = useEditorStore((state) => state.setBackend)
   const setTextureMode = useEditorStore((state) => state.setTextureMode)
 
-  const handleDirectory = async () => {
-    if (!directoryPicker) {
-      fileInput.current?.click()
-      return
-    }
-    try {
-      const directory = await directoryPicker()
-      await saveDirectoryHandle(directory)
-      onPickFiles(await readDirectory(directory))
-    } catch (error) {
-      if ((error as DOMException).name !== 'AbortError') {
-        fileInput.current?.click()
-      }
-    }
-  }
-
   return (
     <header className="toolbar">
       <div className="brand-block">
@@ -78,12 +47,8 @@ export function Toolbar({ onPickFiles, onOpenGridImport, onOpenLibrary, projectC
       </div>
 
       <div className="toolbar-actions">
-        <button className="button button-primary" type="button" onClick={handleDirectory}>
-          <span className="button-icon">⌂</span>
-          打开本地目录
-        </button>
         <button
-          className="button"
+          className="button button-primary"
           type="button"
           onClick={() => fileInput.current?.click()}
           disabled={isImporting}
@@ -97,7 +62,8 @@ export function Toolbar({ onPickFiles, onOpenGridImport, onOpenLibrary, projectC
           data-testid="open-grid-import"
         >
           {'\u5927\u56fe\u88c1\u5207'}
-        </button>        <button className="button button-ghost" type="button" onClick={() => void loadDemo()}>
+        </button>
+        <button className="button button-ghost" type="button" onClick={() => void loadDemo()}>
           载入演示
         </button>
         <button className="button button-ghost" type="button" onClick={() => void loadFullColorDemo()}>
@@ -107,16 +73,23 @@ export function Toolbar({ onPickFiles, onOpenGridImport, onOpenLibrary, projectC
           {'Defold \u793a\u4f8b'}
         </button>
         <button className="button" type="button" onClick={() => projectInput.current?.click()}>
-
           {'\u5bfc\u5165\u9879\u76ee\u5305'}
         </button>
         <button
-          className="button"
           type="button"
+          className="button"
           onClick={onOpenLibrary}
           data-testid="open-project-library"
         >
           {'\u9879\u76ee\u5e93'} {projectCount > 0 ? `(${projectCount})` : ''}
+        </button>
+        <button
+          type="button"
+          className="button button-help"
+          onClick={onOpenImportGuide}
+          data-testid="open-import-guide"
+        >
+          ? 导入说明
         </button>
         <input
           ref={projectInput}
