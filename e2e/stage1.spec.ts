@@ -568,6 +568,47 @@ test('point light emission centroid aligns with its drag handle', async ({ page 
   expect(Math.abs(alignment.centroidY - alignment.handleY)).toBeLessThan(1)
 })
 
+
+test('point light omits the invalid direction control', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('.button-ghost').first().click()
+  await page.locator('.inspector-tabs-four button').nth(1).click()
+
+  await page.locator('.light-main').nth(1).click()
+  await expect(page.locator('.light-editor .range-field')).toHaveCount(4)
+
+  await page.locator('.light-main').nth(0).click()
+  await expect(page.locator('.light-editor .range-field')).toHaveCount(1)
+
+  await page.locator('.add-light-row .mini-button').nth(2).click()
+  await expect(page.locator('.light-editor .range-field')).toHaveCount(7)
+})
+
+test('point and spot canvas UI can be hidden independently', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('.button-ghost').first().click()
+  await page.locator('.inspector-tabs-four button').nth(1).click()
+
+  const pointRow = page.locator('.light-row').nth(1)
+  const pointUiToggle = pointRow.locator('.light-visibility-toggle input')
+  await expect(pointUiToggle).toBeVisible()
+  await pointUiToggle.uncheck()
+  await expect(page.locator('.light-handle')).toHaveCount(0)
+
+  await page.locator('.add-light-row .mini-button').nth(2).click()
+  const spotRow = page.locator('.light-row').nth(2)
+  const spotUiToggle = spotRow.locator('.light-visibility-toggle input')
+  await expect(spotUiToggle).toBeVisible()
+  await expect(page.locator('.light-handle')).toHaveCount(1)
+
+  await spotUiToggle.uncheck()
+  await expect(page.locator('.light-handle')).toHaveCount(0)
+
+  await pointUiToggle.check()
+  await expect(page.locator('.light-handle')).toHaveCount(1)
+  await spotUiToggle.check()
+  await expect(page.locator('.light-handle')).toHaveCount(2)
+})
 test('grid import slices aligned sheets and explains naming and size rules', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('open-grid-import').click()

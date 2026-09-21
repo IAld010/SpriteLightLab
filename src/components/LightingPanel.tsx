@@ -127,12 +127,27 @@ export function LightingPanel() {
                 <span>{light.name}</span>
                 <small>{light.type}</small>
               </button>
-              <input
-                type="checkbox"
-                checked={light.enabled}
-                aria-label={`启用 ${light.name}`}
-                onChange={(event) => updateLight(light.id, { enabled: event.target.checked })}
-              />
+              <div className="light-row-actions">
+                <input
+                  type="checkbox"
+                  checked={light.enabled}
+                  aria-label={`\u542f\u7528 ${light.name}`}
+                  onChange={(event) => updateLight(light.id, { enabled: event.target.checked })}
+                />
+                {light.type !== 'directional' && (
+                  <label className="light-visibility-toggle">
+                    <input
+                      type="checkbox"
+                      checked={light.showUi !== false}
+                      aria-label={`\u663e\u793a ${light.name} \u7684\u753b\u5e03 UI`}
+                      onChange={(event) =>
+                        updateLight(light.id, { showUi: event.target.checked })
+                      }
+                    />
+                    <span>UI</span>
+                  </label>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -209,14 +224,16 @@ export function LightingPanel() {
             </>
           )}
 
-          <RangeField
-            label="方向角"
-            min={0}
-            max={360}
-            step={1}
-            value={selectedLight.direction}
-            onChange={(direction) => updateLight(selectedLight.id, { direction })}
-          />
+          {selectedLight.type !== 'point' && (
+            <RangeField
+              label="方向角"
+              min={0}
+              max={360}
+              step={1}
+              value={selectedLight.direction}
+              onChange={(direction) => updateLight(selectedLight.id, { direction })}
+            />
+          )}
           {selectedLight.type === 'spot' && (
             <>
               <RangeField

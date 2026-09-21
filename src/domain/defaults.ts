@@ -23,6 +23,7 @@ export function createDefaultLighting(): LightingState {
     innerAngle: 30,
     outerAngle: 55,
     falloff: 2,
+    showUi: true,
   }
   const point: LightSource = {
     id: makeId('light'),
@@ -38,6 +39,7 @@ export function createDefaultLighting(): LightingState {
     innerAngle: 30,
     outerAngle: 55,
     falloff: 2,
+    showUi: true,
   }
   return {
     ambientColor: '#ffffff',

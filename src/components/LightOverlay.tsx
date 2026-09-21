@@ -13,7 +13,10 @@ export function LightOverlay() {
   }
 
   const draggableLights = lighting.lights.filter(
-    (light) => light.enabled && light.type !== 'directional',
+    (light) =>
+      light.enabled &&
+      light.type !== 'directional' &&
+      light.showUi !== false,
   )
 
   return (

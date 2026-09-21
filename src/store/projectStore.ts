@@ -303,6 +303,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         innerAngle: 28,
         outerAngle: 52,
         falloff: 2,
+        showUi: true,
       }
       set((state) => ({
         lighting: {

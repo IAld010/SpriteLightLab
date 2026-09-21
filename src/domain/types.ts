@@ -164,6 +164,7 @@ export interface LightSource {
   innerAngle: number
   outerAngle: number
   falloff: number
+  showUi?: boolean
 }
 
 export interface LightingState {

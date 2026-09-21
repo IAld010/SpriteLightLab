@@ -58,10 +58,12 @@ describe('project document', () => {
       },
     )
 
+    document.lighting.lights[1].showUi = false
     const restored = parseProjectDocument(serializeProjectDocument(document))
     expect(restored.version).toBe(2)
     expect(restored.projectName).toBe('测试角色')
     expect(restored.normalPairing[0].normalId).toBe('normal:1')
+    expect(restored.lighting.lights[1].showUi).toBe(false)
   })
 
   it('upgrades version 1 documents without losing settings', () => {

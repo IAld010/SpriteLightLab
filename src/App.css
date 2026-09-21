@@ -1248,13 +1248,34 @@
 
 .light-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 20px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 5px;
   padding: 4px;
   border: 1px solid #222d3e;
   border-radius: 7px;
   background: #0f151f;
+}
+
+.light-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.light-visibility-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: #68768c;
+  font-size: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.light-visibility-toggle input {
+  accent-color: #6b8de9;
 }
 
 .light-row.is-active {
