@@ -3,13 +3,16 @@ import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 
-test('project library shows import rules and the import guide dialog', async ({ page }) => {
+async function chooseDemo(page: Page, index: 0 | 1 | 2) {
+  await page.getByTestId('demo-picker-trigger').click()
+  const menu = page.getByTestId('demo-menu')
+  await expect(menu).toBeVisible()
+  await menu.locator('.demo-option').nth(index).click()
+}
+
+test('toolbar opens the import guide dialog without a project-library banner', async ({ page }) => {
   await page.goto('/')
-  const summary = page.getByTestId('import-guide-summary')
-  await expect(summary).toBeVisible()
-  await expect(summary).toContainText('walk_0001.png')
-  await expect(summary).toContainText('project.zip')
-  await expect(summary).toContainText('assets/')
+  await expect(page.getByTestId('import-guide-summary')).toHaveCount(0)
 
   await page.getByTestId('open-import-guide').click()
   const dialog = page.getByTestId('import-guide-dialog')
@@ -21,12 +24,22 @@ test('project library shows import rules and the import guide dialog', async ({ 
   await expect(dialog).toHaveCount(0)
 })
 
+test('demo picker exposes three example projects', async ({ page }) => {
+  await page.goto('/')
+  await page.getByTestId('demo-picker-trigger').click()
+  const options = page.getByTestId('demo-menu').locator('.demo-option')
+  await expect(options).toHaveCount(3)
+  await expect(options.nth(0)).toContainText('\u666e\u901a\u6f14\u793a')
+  await expect(options.nth(1)).toContainText('\u5168\u5f69\u6f14\u793a')
+  await expect(options.nth(2)).toContainText('Defold')
+})
+
 test('stage 1 imports the demo, groups clips and supports frame interaction', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByTestId('project-library')).toBeVisible()
   await expect(page.locator('.project-card')).toHaveCount(0)
 
-  await page.locator('.button-ghost').first().click()
+  await chooseDemo(page, 0)
   await expect(page.locator('.action-item')).toHaveCount(2)
   await expect(page.locator('.frame-item')).toHaveCount(4)
 
@@ -65,7 +78,7 @@ test('WebGPU backend initializes when the environment exposes it', async ({ page
   const supported = await page.evaluate(() => Boolean((navigator as Navigator & { gpu?: unknown }).gpu))
   test.skip(!supported, 'Current Edge environment does not expose WebGPU.')
 
-  await page.locator('.button-ghost').first().click()
+  await chooseDemo(page, 0)
   await page.locator('.toolbar-settings select').selectOption('webgpu')
   await expect(page.locator('.renderer-error')).toHaveCount(0)
   const before = await page.locator('canvas').screenshot()
@@ -83,7 +96,7 @@ test('WebGPU backend initializes when the environment exposes it', async ({ page
 
 test('palette, lighting and ZIP project pack work together', async ({ page }) => {
   await page.goto('/')
-  await page.locator('.button-ghost').first().click()
+  await chooseDemo(page, 0)
   await expect(page.locator('.swatch-row')).toHaveCount(12)
 
   const before = await page.locator('canvas').screenshot()
@@ -134,7 +147,7 @@ test('PWA starts offline after the first successful visit', async ({ page, conte
 })
 test('full color mode exposes color rules and global adjustments', async ({ page }) => {
   await page.goto('/')
-  await page.locator('.button-ghost').nth(1).click()
+  await chooseDemo(page, 1)
   await expect(page.locator('.mode-fullcolor')).toBeVisible()
   await expect(page.locator('.color-rule')).toHaveCount(0)
   await page.locator('.palette-panel .section-title-row .mini-button').first().click()
@@ -153,7 +166,7 @@ test('full color mode exposes color rules and global adjustments', async ({ page
 
 test('bundled Defold diffuse/normal sample imports as one 16-frame walk clip', async ({ page }) => {
   await page.goto('/')
-  await page.locator('.button-ghost').nth(2).click()
+  await chooseDemo(page, 2)
   await expect(page.locator('.action-item')).toHaveCount(1)
   await expect(page.locator('.action-item')).toContainText('bopz_walk')
   await expect(page.locator('.frame-item')).toHaveCount(16)
@@ -339,7 +352,7 @@ test('project library saves, switches, renames and removes projects', async ({ p
   await page.goto('/')
   await expect(page.getByTestId('project-library')).toBeVisible()
 
-  await page.locator('.button-ghost').first().click()
+  await chooseDemo(page, 0)
   await expect(page.locator('.action-item')).toHaveCount(2)
   await page.waitForTimeout(900)
   await page.getByTestId('open-project-library').click()
@@ -351,7 +364,7 @@ test('project library saves, switches, renames and removes projects', async ({ p
   await renameDialog.getByRole('button', { name: '保存名称' }).click()
   await expect(page.locator('.project-card').first()).toContainText('项目 A')
 
-  await page.locator('.button-ghost').nth(1).click()
+  await chooseDemo(page, 1)
   await expect(page.getByTestId('project-library')).toHaveCount(0)
   await page.waitForTimeout(900)
   await page.getByTestId('open-project-library').click()
@@ -490,7 +503,7 @@ test('legacy single-workspace data migrates once and can be removed permanently'
 
 test('specular strength changes the rendered lighting output', async ({ page }) => {
   await page.goto('/')
-  await page.locator('.button-ghost').first().click()
+  await chooseDemo(page, 0)
   await expect(page.locator('.action-item')).toHaveCount(2)
 
   await page.locator('.inspector-tabs-four button').nth(1).click()
@@ -592,7 +605,7 @@ test('point light emission centroid aligns with its drag handle', async ({ page 
 
 test('point light omits the invalid direction control', async ({ page }) => {
   await page.goto('/')
-  await page.locator('.button-ghost').first().click()
+  await chooseDemo(page, 0)
   await page.locator('.inspector-tabs-four button').nth(1).click()
 
   await page.locator('.light-main').nth(1).click()
@@ -607,7 +620,7 @@ test('point light omits the invalid direction control', async ({ page }) => {
 
 test('point and spot canvas UI can be hidden independently', async ({ page }) => {
   await page.goto('/')
-  await page.locator('.button-ghost').first().click()
+  await chooseDemo(page, 0)
   await page.locator('.inspector-tabs-four button').nth(1).click()
 
   const pointRow = page.locator('.light-row').nth(1)

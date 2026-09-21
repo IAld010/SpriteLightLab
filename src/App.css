@@ -2744,122 +2744,6 @@
   background: linear-gradient(180deg, rgba(83, 130, 205, 0.38), rgba(34, 57, 94, 0.46));
 }
 
-.import-guide-summary {
-  max-width: 1280px;
-  margin: 0 auto 24px;
-  padding: 20px;
-  border: 1px solid #2d3d58;
-  border-radius: 16px;
-  background:
-    linear-gradient(135deg, rgba(73, 108, 174, 0.16), rgba(21, 34, 55, 0.12) 48%, rgba(26, 60, 68, 0.12)),
-    #0e1520;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.2);
-}
-
-.import-guide-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 16px;
-}
-
-.import-guide-heading h2 {
-  margin: 5px 0 6px;
-  color: #eef4ff;
-  font-size: 18px;
-}
-
-.import-guide-heading p {
-  max-width: 760px;
-  margin: 0;
-  color: #7d8ba1;
-  font-size: 11px;
-  line-height: 1.65;
-}
-
-.import-guide-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.import-guide-card {
-  position: relative;
-  min-width: 0;
-  padding: 15px 14px 14px;
-  border: 1px solid #27354b;
-  border-radius: 12px;
-  background: rgba(8, 13, 21, 0.66);
-}
-
-.import-guide-code {
-  display: inline-grid;
-  place-items: center;
-  min-width: 26px;
-  height: 22px;
-  border: 1px solid #47658f;
-  border-radius: 7px;
-  color: #9bc2ff;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 9px;
-  background: rgba(61, 99, 157, 0.18);
-}
-
-.import-guide-card h3 {
-  margin: 10px 0 8px;
-  color: #dce6f6;
-  font-size: 13px;
-}
-
-.import-guide-examples {
-  display: grid;
-  gap: 5px;
-  min-height: 51px;
-}
-
-.import-guide-examples code {
-  overflow: hidden;
-  padding: 5px 6px;
-  border-radius: 5px;
-  color: #a8c4ff;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: #0a1019;
-}
-
-.import-guide-card ul,
-.import-guide-dialog-body ul {
-  display: grid;
-  gap: 6px;
-  margin: 11px 0 0;
-  padding: 0;
-  color: #7d8ba1;
-  font-size: 9px;
-  line-height: 1.55;
-  list-style: none;
-}
-
-.import-guide-card li,
-.import-guide-dialog-body li {
-  position: relative;
-  padding-left: 12px;
-}
-
-.import-guide-card li::before,
-.import-guide-dialog-body li::before {
-  position: absolute;
-  top: 0.62em;
-  left: 0;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #5c86c8;
-  content: "";
-}
-
 .import-guide-dialog {
   width: min(960px, calc(100vw - 40px));
   max-height: calc(100vh - 40px);
@@ -2936,7 +2820,6 @@
 }
 
 @media (max-width: 1080px) {
-  .import-guide-grid,
   .import-guide-dialog-body {
     grid-template-columns: 1fr;
   }
@@ -2944,4 +2827,54 @@
   .import-guide-examples {
     min-height: 0;
   }
+}
+
+
+.demo-picker {
+  position: relative;
+}
+
+.demo-menu {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  left: 50%;
+  display: grid;
+  width: 280px;
+  padding: 7px;
+  border: 1px solid #34445e;
+  border-radius: 12px;
+  background: #0d141f;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  transform: translateX(-50%);
+}
+
+.demo-option {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: 8px;
+  color: #9ba9bd;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.demo-option:hover,
+.demo-option:focus-visible {
+  color: #e5edfb;
+  background: #172236;
+  outline: none;
+}
+
+.demo-option strong {
+  color: #dce6f6;
+  font-size: 11px;
+}
+
+.demo-option span {
+  font-size: 9px;
+  line-height: 1.45;
 }

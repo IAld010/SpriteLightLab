@@ -1,4 +1,4 @@
-﻿import { useRef } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { APP_VERSION } from '../version'
 import { parseProjectDocument } from '../domain/projectDocument'
 import { importPortableJson, importProjectZip } from '../services/projectIO'
@@ -22,6 +22,8 @@ export function Toolbar({
 }: ToolbarProps) {
   const fileInput = useRef<HTMLInputElement>(null)
   const projectInput = useRef<HTMLInputElement>(null)
+  const demoPickerRef = useRef<HTMLDivElement>(null)
+  const [demoMenuOpen, setDemoMenuOpen] = useState(false)
   const backend = useEditorStore((state) => state.settings.backend)
   const textureMode = useEditorStore((state) => state.settings.textureMode)
   const isImporting = useEditorStore((state) => state.isImporting)
@@ -33,6 +35,29 @@ export function Toolbar({
   const loadDefoldSample = useEditorStore((state) => state.loadDefoldSample)
   const setBackend = useEditorStore((state) => state.setBackend)
   const setTextureMode = useEditorStore((state) => state.setTextureMode)
+
+  useEffect(() => {
+    if (!demoMenuOpen) return
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (!demoPickerRef.current?.contains(event.target as Node)) {
+        setDemoMenuOpen(false)
+      }
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDemoMenuOpen(false)
+    }
+    window.addEventListener('pointerdown', closeOnPointerDown)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('pointerdown', closeOnPointerDown)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [demoMenuOpen])
+
+  const chooseDemo = (load: () => Promise<void>) => {
+    setDemoMenuOpen(false)
+    void load()
+  }
 
   return (
     <header className="toolbar">
@@ -61,19 +86,53 @@ export function Toolbar({
           onClick={onOpenGridImport}
           data-testid="open-grid-import"
         >
-          {'\u5927\u56fe\u88c1\u5207'}
+          大图裁切
         </button>
-        <button className="button button-ghost" type="button" onClick={() => void loadDemo()}>
-          载入演示
-        </button>
-        <button className="button button-ghost" type="button" onClick={() => void loadFullColorDemo()}>
-          {'\u5168\u5f69\u6f14\u793a'}
-        </button>
-        <button className="button button-ghost" type="button" onClick={() => void loadDefoldSample()}>
-          {'Defold \u793a\u4f8b'}
-        </button>
+        <div className="demo-picker" ref={demoPickerRef}>
+          <button
+            className="button"
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={demoMenuOpen}
+            onClick={() => setDemoMenuOpen((open) => !open)}
+            data-testid="demo-picker-trigger"
+          >
+            示例项目 ▾
+          </button>
+          {demoMenuOpen && (
+            <div className="demo-menu" role="menu" data-testid="demo-menu">
+              <button
+                type="button"
+                className="demo-option"
+                role="menuitem"
+                onClick={() => chooseDemo(loadDemo)}
+              >
+                <strong>普通演示</strong>
+                <span>索引色、法线光照和基础帧预览</span>
+              </button>
+              <button
+                type="button"
+                className="demo-option"
+                role="menuitem"
+                onClick={() => chooseDemo(loadFullColorDemo)}
+              >
+                <strong>全彩演示</strong>
+                <span>渐变色、全彩调色规则和全局调整</span>
+              </button>
+              <button
+                type="button"
+                className="demo-option"
+                role="menuitem"
+                onClick={() => chooseDemo(loadDefoldSample)}
+              >
+                <strong>Defold 示例</strong>
+                <span>16 帧完整动作，包含 diffuse 和 normal 配对</span>
+              </button>
+            </div>
+          )}
+        </div>
         <button className="button" type="button" onClick={() => projectInput.current?.click()}>
-          {'\u5bfc\u5165\u9879\u76ee\u5305'}
+          导入项目包
         </button>
         <button
           type="button"
@@ -81,7 +140,7 @@ export function Toolbar({
           onClick={onOpenLibrary}
           data-testid="open-project-library"
         >
-          {'\u9879\u76ee\u5e93'} {projectCount > 0 ? `(${projectCount})` : ''}
+          项目库 {projectCount > 0 ? `(${projectCount})` : ''}
         </button>
         <button
           type="button"
@@ -100,7 +159,7 @@ export function Toolbar({
             const file = event.target.files?.[0]
             event.target.value = ''
             if (!file) return
-            setNotice({ tone: 'info', message: '\u6b63\u5728\u5bfc\u5165\u9879\u76ee\u5305\u2026' })
+            setNotice({ tone: 'info', message: '正在导入项目包…' })
             try {
               if (file.name.toLowerCase().endsWith('.zip')) {
                 const portable = await importProjectZip(await file.arrayBuffer())
@@ -123,7 +182,7 @@ export function Toolbar({
               console.error(error)
               setNotice({
                 tone: 'error',
-                message: error instanceof Error ? error.message : '\u9879\u76ee\u5305\u5bfc\u5165\u5931\u8d25\u3002',
+                message: error instanceof Error ? error.message : '项目包导入失败。',
               })
             }
           }}

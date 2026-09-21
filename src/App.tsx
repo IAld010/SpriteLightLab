@@ -372,7 +372,6 @@ export default function App() {
           onRemoveProject={(id) => void removeProject(id)}
           onRenameProject={(id, name) => void renameLibraryProject(id, name)}
           onClose={() => setShowLibrary(false)}
-          onOpenImportGuide={() => setShowImportGuide(true)}
         />
       ) : anchorCalibrationEnabled ? (
         <AnchorCalibrationPage />
