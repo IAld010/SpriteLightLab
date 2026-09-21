@@ -90,3 +90,12 @@ describe('groupFramesIntoAnimations', () => {
     expect(result.frames[0].pairingStatus).toBe('mismatch')
     expect(result.warnings.some((warning) => warning.code === 'frame-size-mismatch')).toBe(true)
   })
+  it('pairs a hyphenated color name with a short _n normal suffix', () => {
+    const result = pairFrameImages(
+      [image('light-color.png')],
+      [image('light-color_n.png')],
+    )
+
+    expect(result.frames[0].pairingStatus).toBe('matched')
+    expect(result.frames[0].normal?.name).toBe('light-color_n.png')
+  })

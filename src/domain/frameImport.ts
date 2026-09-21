@@ -18,7 +18,7 @@ export function colorBaseName(name: string): string {
 
 function canonicalAssetBaseName(name: string): string {
   const stem = stripExtension(normalizePath(name))
-  return stem.replace(COLOR_TOKEN, '').replace(NORMAL_TOKEN, '')
+  return stem.replace(NORMAL_TOKEN, '').replace(COLOR_TOKEN, '')
 }
 
 export function inferActionName(path: string): string {

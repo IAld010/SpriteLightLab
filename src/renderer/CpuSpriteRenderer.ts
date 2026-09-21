@@ -113,6 +113,10 @@ interface LightSample {
   specular: number
 }
 
+export function decodeNormalChannel(value: number): number {
+  const decoded = (value / 255) * 2 - 1
+  return Math.abs(decoded) < 0.01 ? 0 : decoded
+}
 export function lightContribution(
   x: number,
   y: number,
@@ -129,6 +133,7 @@ export function lightContribution(
   let directionY = 0
   let attenuation = 1
   let cone = 1
+  let sourceCore = 0
   if (light.type === 'directional') {
     const radians = (light.direction * Math.PI) / 180
     directionX = -Math.cos(radians)
@@ -139,6 +144,7 @@ export function lightContribution(
     const distance = Math.max(Math.sqrt(deltaX * deltaX + deltaY * deltaY), 0.0001)
     const radius = Math.max(light.radius, 0.0001)
     attenuation = Math.max(1 - distance / radius, 0) ** Math.max(light.falloff, 0.1)
+    sourceCore = Math.max(1 - distance / 0.025, 0) ** 2 * light.intensity * 0.4
     const inverseDistance = 1 / distance
     directionX = deltaX * inverseDistance
     directionY = deltaY * inverseDistance
@@ -151,7 +157,10 @@ export function lightContribution(
       const dot = rayX * toPixelX + rayY * toPixelY
       const inner = Math.cos((light.innerAngle * Math.PI) / 360)
       const outer = Math.cos((light.outerAngle * Math.PI) / 360)
-      cone = clamp((dot - outer) / Math.max(inner - outer, 0.0001))
+      cone =
+        distance <= 0.001
+          ? 1
+          : clamp((dot - outer) / Math.max(inner - outer, 0.0001))
       cone = cone * cone * (3 - 2 * cone)
     }
   }
@@ -162,7 +171,7 @@ export function lightContribution(
   const lightY = directionY / directionLength
   const lightZ = surfaceZ / directionLength
   const diffuse = Math.max(normalX * lightX + normalY * lightY + normalZ * lightZ, 0)
-  const contribution = light.intensity * diffuse * attenuation * cone
+  const contribution = light.intensity * diffuse * attenuation * cone + sourceCore
   if (contribution <= 0) {
     return { diffuse: 0, specular: 0 }
   }
@@ -178,7 +187,8 @@ export function lightContribution(
       normalY * (halfY / halfLength) +
       normalZ * (halfZ / halfLength),
   )
-  const specular = specularDot ** 32 * light.intensity * attenuation * cone
+  const specular =
+    specularDot ** 32 * light.intensity * attenuation * cone + sourceCore * 0.35
 
   return { diffuse: contribution, specular }
 }
@@ -238,9 +248,9 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
 
       if (input.preferences.lightingEnabled) {
         const normalOffset = (sourceY * normal.width + sourceX) * 4
-        let normalX = (normal.data[normalOffset] / 255) * 2 - 1
-        let normalY = (normal.data[normalOffset + 1] / 255) * 2 - 1
-        let normalZ = (normal.data[normalOffset + 2] / 255) * 2 - 1
+        let normalX = decodeNormalChannel(normal.data[normalOffset])
+        let normalY = decodeNormalChannel(normal.data[normalOffset + 1])
+        let normalZ = decodeNormalChannel(normal.data[normalOffset + 2])
         if (input.preferences.flipGreen) normalY *= -1
         normalX *= input.preferences.normalStrength
         normalY *= input.preferences.normalStrength

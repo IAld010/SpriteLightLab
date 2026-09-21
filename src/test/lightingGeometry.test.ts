@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lightContribution } from '../renderer/CpuSpriteRenderer'
+import { decodeNormalChannel, lightContribution } from '../renderer/CpuSpriteRenderer'
 import type { LightSource } from '../domain/types'
 import { lightPointToObject, objectRectFromCenter } from '../renderer/lightingGeometry'
 
@@ -60,4 +60,22 @@ it('aims a spot cone from the light position instead of the sprite corner', () =
 
   expect(lightContribution(0.85, 0.5, 0, 0, 1, 1, spot, objectRect).diffuse).toBeGreaterThan(0)
   expect(lightContribution(0.5, 0.1, 0, 0, 1, 1, spot, objectRect).diffuse).toBe(0)
+})
+it('treats common 127/128 normal channels as neutral', () => {
+  expect(decodeNormalChannel(127)).toBe(0)
+  expect(decodeNormalChannel(128)).toBe(0)
+  expect(decodeNormalChannel(255)).toBeCloseTo(1, 6)
+})
+it('lights the spot cone apex at the light position', () => {
+  const objectRect = objectRectFromCenter(500, 350, 500, 500, 1000, 700)
+  const spot = pointLight({
+    type: 'spot',
+    direction: 0,
+    radius: 1,
+    innerAngle: 30,
+    outerAngle: 55,
+    falloff: 1,
+  })
+
+  expect(lightContribution(0.5, 0.5, 0, 0, 1, 1, spot, objectRect).diffuse).toBeGreaterThan(0)
 })
