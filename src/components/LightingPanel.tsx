@@ -191,9 +191,9 @@ export function LightingPanel() {
                 onChange={(y) => updateLight(selectedLight.id, { y })}
               />
               <RangeField
-                label="半径"
+                label="半径（相对精灵）"
                 min={0.05}
-                max={1.5}
+                max={2}
                 step={0.01}
                 value={selectedLight.radius}
                 onChange={(radius) => updateLight(selectedLight.id, { radius })}

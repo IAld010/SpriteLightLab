@@ -34,7 +34,7 @@ export function createDefaultLighting(): LightingState {
     x: 0.72,
     y: 0.3,
     direction: 180,
-    radius: 0.38,
+    radius: 0.68,
     innerAngle: 30,
     outerAngle: 55,
     falloff: 2,

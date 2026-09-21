@@ -1,4 +1,5 @@
 import { buildPaletteLut, hexToRgb } from '../domain/palette'
+import { lightPointToObject, type ObjectRect } from './lightingGeometry'
 import type {
   ColorAdjustments,
   ColorRule,
@@ -21,7 +22,7 @@ export interface CpuRenderInput {
   palette: PalettePreset
   lighting: LightingState
   preferences: RenderPreferences
-  objectRect: [number, number, number, number]
+  objectRect: ObjectRect
   debugNormal?: boolean
 }
 
@@ -112,18 +113,18 @@ interface LightSample {
   specular: number
 }
 
-function lightContribution(
+export function lightContribution(
   x: number,
   y: number,
   normalX: number,
   normalY: number,
   normalZ: number,
+  frameAspect: number,
   light: LightSource,
-  objectRect: [number, number, number, number],
+  objectRect: ObjectRect,
 ): LightSample {
-  const localX = objectRect[2] > 0 ? (light.x - objectRect[0]) / objectRect[2] : 0
-  const localY = objectRect[3] > 0 ? (light.y - objectRect[1]) / objectRect[3] : 0
-  const aspect = 1
+  const [localX, localY] = lightPointToObject(light.x, light.y, objectRect)
+  const aspect = Math.max(frameAspect, 0.0001)
   let directionX = 0
   let directionY = 0
   let attenuation = 1
@@ -133,8 +134,8 @@ function lightContribution(
     directionX = -Math.cos(radians)
     directionY = -Math.sin(radians)
   } else {
-    const deltaX = (localX - x) * aspect
-    const deltaY = localY - y
+    const deltaX = localX - x
+    const deltaY = (localY - y) / aspect
     const distance = Math.max(Math.sqrt(deltaX * deltaX + deltaY * deltaY), 0.0001)
     const radius = Math.max(light.radius, 0.0001)
     attenuation = Math.max(1 - distance / radius, 0) ** Math.max(light.falloff, 0.1)
@@ -267,6 +268,7 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
             normalX,
             normalY,
             normalZ,
+            outputWidth / outputHeight,
             light,
             input.objectRect,
           )

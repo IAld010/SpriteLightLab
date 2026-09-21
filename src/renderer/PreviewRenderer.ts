@@ -12,6 +12,7 @@ import type {
   RuntimeImage,
 } from '../domain/types'
 import { renderCpuSprite } from './CpuSpriteRenderer'
+import { objectRectFromCenter } from './lightingGeometry'
 import { registerPreviewExporter, unregisterPreviewExporter, type PreviewExporter } from './previewExportRegistry'
 
 export interface PreviewAppearance {
@@ -264,16 +265,15 @@ export class PreviewRenderer implements PreviewExporter {
     const height = Math.max(this.viewportHeight, 1)
     const textureWidth = Math.max(1, this.sprite?.texture.width ?? 1)
     const textureHeight = Math.max(1, this.sprite?.texture.height ?? 1)
-    const objectWidth = textureWidth * this.displayScale
-    const objectHeight = textureHeight * this.displayScale
-    return [
-      this.displayX / width,
-      this.displayY / height,
-      objectWidth / width,
-      objectHeight / height,
-    ]
+    return objectRectFromCenter(
+      this.displayX,
+      this.displayY,
+      textureWidth * this.displayScale,
+      textureHeight * this.displayScale,
+      width,
+      height,
+    )
   }
-
   private layout(): void {
     if (!this.app || !this.sprite) return
     const width = this.app.renderer.width / this.app.renderer.resolution

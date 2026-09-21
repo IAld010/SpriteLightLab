@@ -299,7 +299,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         x: type === 'directional' ? 0.5 : 0.62,
         y: type === 'directional' ? 0.5 : 0.62,
         direction: 225,
-        radius: 0.35,
+        radius: type === 'point' ? 0.68 : 0.55,
         innerAngle: 28,
         outerAngle: 52,
         falloff: 2,
