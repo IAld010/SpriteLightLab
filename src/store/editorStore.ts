@@ -57,6 +57,7 @@ interface EditorState {
   importProjectFiles: (files: File[], document: ProjectDocument, session?: ProjectSession) => Promise<void>
   applyProjectDocument: (document: ProjectDocument) => void
   clearProject: () => void
+  commitImportedBundle: (bundle: AssetBundle) => void
   loadDemo: () => Promise<void>
   loadFullColorDemo: () => Promise<void>
   loadDefoldSample: () => Promise<void>
@@ -134,6 +135,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     panY: 0,
   },
 
+  commitImportedBundle: (bundle) => {
+    const warnings = collectCurrentWarnings(bundle)
+    useProjectStore.getState().initializeFromBundle(bundle)
+    set({
+      bundle,
+      projectId: createProjectId(),
+      projectCreatedAt: new Date().toISOString(),
+      warnings,
+      selectedActionId: bundle.animations[0]?.id,
+      currentFrameIndex: 0,
+      isPlaying: false,
+      isImporting: false,
+      notice: {
+        tone: warnings.some((warning) => warning.severity === 'error') ? 'warning' : 'success',
+        message: `已导入 ${bundle.frames.length} 帧、${bundle.animations.length} 个动作。`,
+      },
+    })
+  },
   importLocalFiles: async (files) => {
     if (files.length === 0) {
       return

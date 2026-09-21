@@ -148,6 +148,9 @@ async function importAlignmentFixture(page: Page, colorFile: string, normalFile:
     path.join(fixtureRoot, colorFile),
     path.join(fixtureRoot, normalFile),
   ])
+  await expect(page.getByTestId('manual-match-page')).toBeVisible()
+  await expect(page.locator('.matching-row')).toHaveCount(1)
+  await page.getByTestId('confirm-manual-match').click()
   await expect(page.locator('.frame-item')).toHaveCount(1)
 }
 
@@ -530,4 +533,44 @@ test('grid import blocks color and normal sheets with different dimensions', asy
 
   await expect(dialog.getByText(/法线图尺寸必须与精灵图完全一致/)).toBeVisible()
   await expect(dialog.getByRole('button', { name: /确认导入/ })).toBeDisabled()
+})
+
+test('manual matching page pairs images with different names by drag and drop', async ({ page }) => {
+  await page.goto('/')
+  const fixtureRoot = path.join(process.cwd(), 'e2e', 'fixtures', 'alignment')
+  await page.locator('.toolbar input[type="file"]').nth(1).setInputFiles([
+    path.join(fixtureRoot, 'horizontal.png'),
+    path.join(fixtureRoot, 'vertical_n.png'),
+  ])
+
+  const pageRoot = page.getByTestId('manual-match-page')
+  await expect(pageRoot).toBeVisible()
+  await expect(pageRoot).toContainText('walk_0001.png')
+  await expect(pageRoot).toContainText('尺寸必须完全一致')
+  await expect(page.locator('.matching-row')).toHaveCount(0)
+
+  await page.getByRole('button', { name: '添加空白匹配行' }).click()
+  const row = page.locator('.matching-row').first()
+  const sourceSlot = row.locator('[data-drop-kind="source"]')
+  const normalSlot = row.locator('[data-drop-kind="normal"]')
+
+  const sourceItem = page.locator('[data-match-kind="source"]')
+  const normalItem = page.locator('[data-match-kind="normal"]')
+  const sourceTransfer = await page.evaluateHandle(() => new DataTransfer())
+  await sourceItem.dispatchEvent('dragstart', { dataTransfer: sourceTransfer })
+  await sourceSlot.dispatchEvent('dragover', { dataTransfer: sourceTransfer })
+  await sourceSlot.dispatchEvent('drop', { dataTransfer: sourceTransfer })
+  const normalTransfer = await page.evaluateHandle(() => new DataTransfer())
+  await normalItem.dispatchEvent('dragstart', { dataTransfer: normalTransfer })
+  await normalSlot.dispatchEvent('dragover', { dataTransfer: normalTransfer })
+  await normalSlot.dispatchEvent('drop', { dataTransfer: normalTransfer })
+
+  await expect(sourceSlot).toContainText('horizontal')
+  await expect(normalSlot).toContainText('vertical_n')
+  await page.getByTestId('confirm-manual-match').click()
+
+  await expect(page.getByTestId('manual-match-page')).toHaveCount(0)
+  await expect(page.locator('.frame-item')).toHaveCount(1)
+  await page.locator('.inspector-tabs-four button').nth(2).click()
+  await expect(page.locator('.inspector-content .field select').first()).not.toHaveValue('')
 })

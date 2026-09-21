@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import { ActionSidebar } from './components/ActionSidebar'
 import { GridImportDialog } from './components/GridImportDialog'
+import { ManualMatchPage } from './components/ManualMatchPage'
 import { InspectorPanel } from './components/InspectorPanel'
 import { PreviewStage } from './components/PreviewStage'
 import { ProjectLibraryPage } from './components/ProjectLibraryPage'
 import { Timeline } from './components/Timeline'
 import { Toolbar } from './components/Toolbar'
+import { importFiles as prepareAssetFiles } from './domain/importAssets'
 import { createProjectDocument } from './domain/projectDocument'
 import {
   deleteProject,
@@ -16,6 +18,7 @@ import {
   renameProject,
   saveProject,
 } from './services/projectPersistence'
+import type { AssetBundle } from './domain/types'
 import { getSelectedAction, useEditorStore } from './store/editorStore'
 import { useProjectLibraryStore } from './store/projectLibraryStore'
 import { useProjectStore } from './store/projectStore'
@@ -37,6 +40,8 @@ export default function App() {
   const [rendererStatus, setRendererStatus] = useState('未连接')
   const [showLibrary, setShowLibrary] = useState(true)
   const [showGridImport, setShowGridImport] = useState(false)
+  const [matchingBundle, setMatchingBundle] = useState<AssetBundle>()
+  const [isPreparingImport, setIsPreparingImport] = useState(false)
   const [libraryBusy, setLibraryBusy] = useState(false)
   const [libraryError, setLibraryError] = useState<string>()
   const hydrated = useRef(false)
@@ -49,9 +54,9 @@ export default function App() {
   const isImporting = useEditorStore((state) => state.isImporting)
   const isPlaying = useEditorStore((state) => state.isPlaying)
   const notice = useEditorStore((state) => state.notice)
-  const importLocalFiles = useEditorStore((state) => state.importLocalFiles)
   const importProjectFiles = useEditorStore((state) => state.importProjectFiles)
   const clearProject = useEditorStore((state) => state.clearProject)
+  const commitImportedBundle = useEditorStore((state) => state.commitImportedBundle)
   const dismissNotice = useEditorStore((state) => state.dismissNotice)
   const advanceFrame = useEditorStore((state) => state.advanceFrame)
   const setPlaying = useEditorStore((state) => state.setPlaying)
@@ -63,8 +68,29 @@ export default function App() {
   const upsertProject = useProjectLibraryStore((state) => state.upsertProject)
   const refreshLibrary = useProjectLibraryStore((state) => state.refresh)
   const setStoreError = useProjectLibraryStore((state) => state.setError)
+  const setNotice = useEditorStore((state) => state.setNotice)
   const activateProject = useProjectLibraryStore((state) => state.setActiveProjectId)
 
+  const prepareLocalImport = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) {
+        return
+      }
+      setIsPreparingImport(true)
+      try {
+        const imported = await prepareAssetFiles(files)
+        setMatchingBundle(imported)
+      } catch (error) {
+        setNotice({
+          tone: 'error',
+          message: error instanceof Error ? error.message : '素材解析失败。',
+        })
+      } finally {
+        setIsPreparingImport(false)
+      }
+    },
+    [setNotice],
+  )
   const persistCurrentProject = useCallback(async (): Promise<void> => {
     const editor = useEditorStore.getState()
     const project = useProjectStore.getState()
@@ -310,17 +336,28 @@ export default function App() {
       onDrop={(event) => {
         event.preventDefault()
         setIsDragging(false)
-        void importLocalFiles(Array.from(event.dataTransfer.files))
+        void prepareLocalImport(Array.from(event.dataTransfer.files))
       }}
     >
       <Toolbar
-        onPickFiles={(files) => void importLocalFiles(files)}
+        onPickFiles={(files) => void prepareLocalImport(files)}
         onOpenGridImport={() => setShowGridImport(true)}
         onOpenLibrary={() => setShowLibrary(true)}
         projectCount={projects.length}
       />
 
-      {showLibrary ? (
+      {matchingBundle ? (
+        <ManualMatchPage
+          key={matchingBundle.id}
+          bundle={matchingBundle}
+          onCancel={() => setMatchingBundle(undefined)}
+          onConfirm={(matchedBundle) => {
+            commitImportedBundle(matchedBundle)
+            setMatchingBundle(undefined)
+            setShowLibrary(false)
+          }}
+        />
+      ) : showLibrary ? (
         <ProjectLibraryPage
           projects={projects}
           activeProjectId={activeProjectId}
@@ -346,12 +383,12 @@ export default function App() {
       )}
 
       {showGridImport && <GridImportDialog onClose={() => setShowGridImport(false)} />}
-      {(isImporting || isDragging) && (
+      {(isImporting || isPreparingImport || isDragging) && (
         <div className={`drop-overlay ${isDragging ? 'is-dragging' : ''}`}>
           <div className="drop-card">
-            <div className="drop-icon">{isImporting ? '…' : '↓'}</div>
-            <strong>{isImporting ? '正在读取素材与配对法线图' : '释放以导入素材'}</strong>
-            <span>{isImporting ? '本地解析中，不会上传文件。' : 'PNG、JSON 与法线图可同时拖入。'}</span>
+            <div className="drop-icon">{isImporting || isPreparingImport ? '…' : '↓'}</div>
+            <strong>{isImporting || isPreparingImport ? '正在读取素材并自动配对' : '释放以导入素材'}</strong>
+            <span>{isImporting || isPreparingImport ? '本地解析中，不会上传文件。' : 'PNG、JSON 与法线图可同时拖入。'}</span>
           </div>
         </div>
       )}
