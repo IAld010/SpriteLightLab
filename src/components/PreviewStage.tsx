@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { AnchorCalibrationOverlay } from './AnchorCalibrationOverlay'
 import { LightOverlay } from './LightOverlay'
 import type { PreviewBackground, PreviewTextureMode } from '../domain/types'
 import { PreviewRenderer } from '../renderer/PreviewRenderer'
-import { getCurrentFrame, useEditorStore } from '../store/editorStore'
+import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
+import { resolveFrameAlignment } from '../domain/alignment'
 import { activePaletteFromState, useProjectStore } from '../store/projectStore'
 
 const EMPTY_PALETTE_SOURCES: string[] = []
@@ -37,11 +39,23 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
   const setPan = useEditorStore((state) => state.setPan)
   const resetView = useEditorStore((state) => state.resetView)
   const currentFrame = useEditorStore((state) => getCurrentFrame(state))
+  const selectedAction = useEditorStore((state) => getSelectedAction(state))
+  const anchorCalibrationEnabled = useEditorStore((state) => state.anchorCalibrationEnabled)
   const paletteMode = bundle?.paletteMode ?? 'fullcolor'
   const paletteSources = bundle?.paletteSources ?? EMPTY_PALETTE_SOURCES
   const palette = useProjectStore((state) => activePaletteFromState(state))
   const lighting = useProjectStore((state) => state.lighting)
   const preferences = useProjectStore((state) => state.renderPreferences)
+
+  const sourceImage = currentFrame
+    ? bundle?.images.find((image) => image.id === currentFrame.source.imageId)
+    : undefined
+  const frameWidth = currentFrame?.source.rect?.width ?? sourceImage?.width ?? 1
+  const frameHeight = currentFrame?.source.rect?.height ?? sourceImage?.height ?? 1
+  const frameAlignment = currentFrame
+    ? currentFrame.alignment ?? resolveFrameAlignment(frameWidth, frameHeight, 'bottom-center')
+    : undefined
+  const actionAlignment = selectedAction?.alignment
 
   useEffect(() => {
     renderOptions.current = { textureMode, background, zoom, panX, panY }
@@ -66,8 +80,19 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
         }
         rendererRef.current = renderer
         onStatusChange(renderer.getBackendLabel())
-        const frame = getCurrentFrame(useEditorStore.getState())
-        return renderer.setFrame(frame, options.textureMode)
+        const currentState = useEditorStore.getState()
+        const frame = getCurrentFrame(currentState)
+        const currentAction = getSelectedAction(currentState)
+        return renderer.setFrame(
+          frame,
+          options.textureMode,
+          frame?.alignment ?? (frame ? resolveFrameAlignment(
+              frame.source.rect?.width ?? bundle.images.find((image) => image.id === frame.source.imageId)?.width ?? 1,
+              frame.source.rect?.height ?? bundle.images.find((image) => image.id === frame.source.imageId)?.height ?? 1,
+              'bottom-center',
+            ) : undefined),
+          currentAction?.alignment,
+        )
       })
       .catch((reason: unknown) => {
         if (disposed) {
@@ -97,12 +122,12 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
     if (!renderer) {
       return
     }
-    void renderer.setFrame(currentFrame, textureMode).catch((reason: unknown) =>
+    void renderer.setFrame(currentFrame, textureMode, frameAlignment, actionAlignment).catch((reason: unknown) =>
       setError(
         reason instanceof Error ? reason.message : '\u5f53\u524d\u5e27\u52a0\u8f7d\u5931\u8d25\u3002',
       ),
     )
-  }, [currentFrame, readyVersion, textureMode])
+  }, [actionAlignment, currentFrame, frameAlignment, readyVersion, textureMode])
 
   useEffect(() => {
     if (rendererRef.current && palette) {
@@ -184,13 +209,14 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
           </small>
         </div>
       )}
-      <LightOverlay />
-      <div className="canvas-corner-label">
+      {!anchorCalibrationEnabled && <LightOverlay />}
+      {anchorCalibrationEnabled && <AnchorCalibrationOverlay />}
+      {!anchorCalibrationEnabled && <div className="canvas-corner-label">
         {textureMode === 'normal'
           ? '\u6cd5\u7ebf\u56fe\u9884\u89c8'
           : '\u989c\u8272\u56fe\u9884\u89c8'}{' '}
         · {Math.round(zoom * 100)}%
-      </div>
+      </div>}
     </div>
   )
 }

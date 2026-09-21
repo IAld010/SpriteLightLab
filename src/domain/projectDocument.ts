@@ -120,13 +120,18 @@ export function applyProjectDocumentToBundle(
     const matchedCandidate = documentFrame?.normal
       ? candidatesByName.get(documentFrame.normal.name)
       : undefined
-    if (!documentFrame || !matchedCandidate) {
+    if (!documentFrame) {
       return frame
     }
     return {
       ...frame,
-      normal: matchedCandidate,
-      pairingStatus: 'manual' as const,
+      ...(documentFrame.alignment ? { alignment: documentFrame.alignment } : {}),
+      ...(matchedCandidate
+        ? {
+            normal: matchedCandidate,
+            pairingStatus: 'manual' as const,
+          }
+        : {}),
     }
   })
 

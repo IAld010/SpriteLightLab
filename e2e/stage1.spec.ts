@@ -611,6 +611,131 @@ test('point and spot canvas UI can be hidden independently', async ({ page }) =>
   await spotUiToggle.check()
   await expect(page.locator('.light-handle')).toHaveCount(2)
 })
+
+test('anchor calibration aligns 64x64, 64x128 and 128x128 frames at one scale', async ({ page }) => {
+  await page.goto('/')
+  const generated = await page.evaluate(() => {
+    const make = (width: number, height: number, color: string) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')!
+      context.fillStyle = color
+      context.fillRect(0, 0, width, height)
+      return canvas.toDataURL('image/png').split(',')[1]
+    }
+    return {
+      idle: make(64, 64, 'rgb(255,255,255)'),
+      idleNormal: make(64, 64, 'rgb(128,128,255)'),
+      tall: make(64, 128, 'rgb(255,210,210)'),
+      tallNormal: make(64, 128, 'rgb(128,128,255)'),
+      wide: make(128, 128, 'rgb(190,220,255)'),
+      wideNormal: make(128, 128, 'rgb(128,128,255)'),
+    }
+  })
+
+  await page.locator('.toolbar input[type="file"]').nth(1).setInputFiles([
+    { name: 'hero_0001.png', mimeType: 'image/png', buffer: Buffer.from(generated.idle, 'base64') },
+    { name: 'hero_0001_n.png', mimeType: 'image/png', buffer: Buffer.from(generated.idleNormal, 'base64') },
+    { name: 'hero_0002.png', mimeType: 'image/png', buffer: Buffer.from(generated.tall, 'base64') },
+    { name: 'hero_0002_n.png', mimeType: 'image/png', buffer: Buffer.from(generated.tallNormal, 'base64') },
+    { name: 'hero_0003.png', mimeType: 'image/png', buffer: Buffer.from(generated.wide, 'base64') },
+    { name: 'hero_0003_n.png', mimeType: 'image/png', buffer: Buffer.from(generated.wideNormal, 'base64') },
+  ])
+  await expect(page.locator('.matching-column')).toHaveCount(3)
+  await page.getByTestId('confirm-manual-match').click()
+  await expect(page.locator('.frame-item')).toHaveCount(3)
+  await expect(page.locator('.action-item')).toHaveCount(1)
+
+  await page.locator('.inspector-tabs-five button').nth(4).click()
+  await page.getByTestId('anchor-calibration-panel').getByRole('button').first().click()
+  await expect(page.getByTestId('anchor-calibration-overlay')).toBeVisible()
+  await expect(page.getByTestId('anchor-pixel-grid')).toBeVisible()
+
+  const inputs = page.locator('.anchor-number-grid input')
+  await expect(inputs.nth(0)).toHaveValue('32')
+  await expect(inputs.nth(1)).toHaveValue('64')
+  await expect(page.locator('.anchor-layout-summary')).toContainText('128')
+
+  const fixedSurface = page.getByTestId('anchor-calibration-surface')
+  const fixedSurfaceBefore = await fixedSurface.boundingBox()
+  await inputs.nth(0).fill('10.5')
+  await expect(page.getByTestId('anchor-crosshair-y')).toHaveCSS('left', '84px')
+  await fixedSurface.click({ position: { x: 84, y: 84 } })
+  await expect(inputs.nth(0)).toHaveValue('10.5')
+  await expect(inputs.nth(1)).toHaveValue('10.5')
+  const fixedSurfaceAfter = await fixedSurface.boundingBox()
+  expect(fixedSurfaceAfter).toEqual(fixedSurfaceBefore)
+  await page.locator('.anchor-zoom-row .mini-button').nth(2).click()
+  await expect(page.getByTestId('anchor-pixel-grid')).toHaveCount(0)
+  await page.locator('.anchor-zoom-row .mini-button').nth(3).click()
+  await expect(page.getByTestId('anchor-pixel-grid')).toBeVisible()
+  await inputs.nth(0).fill('32')
+  await inputs.nth(1).fill('64')
+
+  await page.locator('.frame-item').nth(1).click()
+  await expect(inputs.nth(0)).toHaveValue('32')
+  await expect(inputs.nth(1)).toHaveValue('128')
+
+  await page.locator('.frame-item').nth(2).click()
+  await expect(inputs.nth(0)).toHaveValue('64')
+  await expect(inputs.nth(1)).toHaveValue('128')
+  const wideSurface = await page.getByTestId('anchor-calibration-surface').boundingBox()
+  expect(wideSurface?.width).toBe(1024)
+  expect(wideSurface?.height).toBe(1024)
+
+  await page.locator('.anchor-panel .section-title-row .mini-button').first().click()
+  await expect(page.getByTestId('anchor-calibration-overlay')).toHaveCount(0)
+
+  const measureCanvasBounds = () => page.locator('.preview-canvas-host canvas').evaluate(async (canvas) => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    const canvasElement = canvas as HTMLCanvasElement
+    const output = document.createElement('canvas')
+    output.width = canvasElement.width
+    output.height = canvasElement.height
+    const context = output.getContext('2d')!
+    context.drawImage(canvasElement, 0, 0)
+    const pixels = context.getImageData(0, 0, output.width, output.height).data
+    let minX = output.width
+    let minY = output.height
+    let maxX = -1
+    let maxY = -1
+    for (let y = 0; y < output.height; y += 1) {
+      for (let x = 0; x < output.width; x += 1) {
+        if (pixels[(y * output.width + x) * 4 + 3] > 8) {
+          minX = Math.min(minX, x)
+          minY = Math.min(minY, y)
+          maxX = Math.max(maxX, x)
+          maxY = Math.max(maxY, y)
+        }
+      }
+    }
+    return { width: maxX - minX + 1, height: maxY - minY + 1, bottom: maxY }
+  })
+
+  await page.locator('.frame-item').nth(0).click()
+  await page.waitForTimeout(250)
+  const idleBounds = await measureCanvasBounds()
+  await page.locator('.frame-item').nth(1).click()
+  await page.waitForTimeout(250)
+  const tallBounds = await measureCanvasBounds()
+  await page.locator('.frame-item').nth(2).click()
+  await page.waitForTimeout(250)
+  const wideBounds = await measureCanvasBounds()
+
+  expect(Math.abs(tallBounds.width - idleBounds.width)).toBeLessThanOrEqual(2)
+  expect(Math.abs(tallBounds.height - idleBounds.height * 2)).toBeLessThanOrEqual(2)
+  expect(Math.abs(wideBounds.width - tallBounds.width * 2)).toBeLessThanOrEqual(2)
+  expect(Math.abs(wideBounds.height - tallBounds.height)).toBeLessThanOrEqual(2)
+  expect(Math.abs(wideBounds.bottom - tallBounds.bottom)).toBeLessThanOrEqual(2)
+
+  await page.waitForTimeout(900)
+  await page.reload()
+  await expect(page.locator('.frame-item')).toHaveCount(3)
+  await page.locator('.inspector-tabs-five button').nth(4).click()
+  await expect(page.locator('.anchor-number-grid input').nth(0)).toHaveValue('32')
+  await expect(page.locator('.anchor-number-grid input').nth(1)).toHaveValue('64')
+})
 test('grid import slices aligned sheets and explains naming and size rules', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('open-grid-import').click()

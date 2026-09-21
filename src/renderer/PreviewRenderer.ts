@@ -1,7 +1,9 @@
 import { Application, Sprite, Texture } from 'pixi.js'
 import type {
+  ActionAlignment,
   AssetBundle,
   BackendPreference,
+  FrameAlignment,
   LightingState,
   PaletteMode,
   PalettePreset,
@@ -43,6 +45,8 @@ export class PreviewRenderer implements PreviewExporter {
   private currentIndex?: ImageData
   private currentFrameRect: FrameRect = { x: 0, y: 0, width: 1, height: 1 }
   private appearance?: PreviewAppearance
+  private frameAlignment?: FrameAlignment
+  private actionAlignment?: ActionAlignment
   private textureMode: PreviewTextureMode = 'color'
   private zoom = 1
   private panX = 0
@@ -110,9 +114,16 @@ export class PreviewRenderer implements PreviewExporter {
     app.renderer.on('resize', this.resizeHandler)
   }
 
-  async setFrame(frame: PreviewFrame | undefined, textureMode = this.textureMode): Promise<void> {
+  async setFrame(
+    frame: PreviewFrame | undefined,
+    textureMode = this.textureMode,
+    frameAlignment?: FrameAlignment,
+    actionAlignment?: ActionAlignment,
+  ): Promise<void> {
     if (!this.app) return
     this.textureMode = textureMode
+    this.frameAlignment = frameAlignment
+    this.actionAlignment = actionAlignment
     const token = ++this.currentToken
     if (!frame) {
       this.clearSprite()
@@ -282,10 +293,39 @@ export class PreviewRenderer implements PreviewExporter {
     this.viewportHeight = height
     const textureWidth = Math.max(1, this.sprite.texture.width)
     const textureHeight = Math.max(1, this.sprite.texture.height)
+
+    if (this.actionAlignment && this.frameAlignment) {
+      const frameWidth = Math.max(1, this.currentFrameRect.width)
+      const frameHeight = Math.max(1, this.currentFrameRect.height)
+      const outputScale = textureWidth / frameWidth
+      const canvasWidth = Math.max(1, this.actionAlignment.canvasWidth)
+      const canvasHeight = Math.max(1, this.actionAlignment.canvasHeight)
+      const fit = Math.min(
+        (width * 0.68) / canvasWidth,
+        (height * 0.68) / canvasHeight,
+      )
+      const scale = Math.max(0.05, fit * this.actionAlignment.scale * this.zoom)
+      const canvasLeft = width / 2 - (canvasWidth * scale) / 2 + (this.panX * width) / 2
+      const canvasTop = height / 2 - (canvasHeight * scale) / 2 + (this.panY * height) / 2
+      this.displayScale = scale * outputScale
+      this.displayX =
+        canvasLeft + (this.actionAlignment.anchorX + this.frameAlignment.offsetX) * scale
+      this.displayY =
+        canvasTop + (this.actionAlignment.anchorY + this.frameAlignment.offsetY) * scale
+      this.sprite.anchor.set(
+        this.frameAlignment.pivotX / frameWidth,
+        this.frameAlignment.pivotY / frameHeight,
+      )
+      this.sprite.scale.set(this.displayScale)
+      this.sprite.position.set(this.displayX, this.displayY)
+      return
+    }
+
     const fit = Math.min((width * 0.68) / textureWidth, (height * 0.68) / textureHeight)
     this.displayScale = Math.max(0.05, fit * this.zoom)
     this.displayX = width / 2 + (this.panX * width) / 2
     this.displayY = height / 2 + (this.panY * height) / 2
+    this.sprite.anchor.set(0.5)
     this.sprite.scale.set(this.displayScale)
     this.sprite.position.set(this.displayX, this.displayY)
   }

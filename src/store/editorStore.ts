@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { computeActionAlignment, resolveFrameAlignment } from '../domain/alignment'
 import { createDemoFiles, createFullColorDemoFiles } from '../demo/createDemoFiles'
 import { importProjectZip } from '../services/projectIO'
 import { createProjectId } from '../services/projectPersistence'
@@ -15,10 +16,14 @@ import {
   updateFrameNormal,
 } from '../domain/importAssets'
 import type {
+  ActionAlignment,
+  AnchorPreset,
+  AnchorSnapMode,
   AnimationClip,
   AssetBundle,
   BackendPreference,
   EditorSettings,
+  FrameAlignment,
   GridImportConfig,
   ImportWarning,
   PreviewBackground,
@@ -46,6 +51,11 @@ interface EditorState {
   currentFrameIndex: number
   isPlaying: boolean
   isImporting: boolean
+  anchorCalibrationEnabled: boolean
+  anchorCalibrationZoom: number
+  anchorGridVisible: boolean
+  anchorOnionSkin: boolean
+  anchorSnapMode: AnchorSnapMode
   settings: EditorSettings
   notice?: EditorNotice
   importLocalFiles: (files: File[]) => Promise<void>
@@ -70,6 +80,14 @@ interface EditorState {
   setFps: (fps: number) => void
   renameAction: (actionId: string, name: string) => void
   reorderFrames: (actionId: string, fromIndex: number, toIndex: number) => void
+  setAnchorCalibrationEnabled: (enabled: boolean) => void
+  setAnchorCalibrationZoom: (zoom: number) => void
+  setAnchorGridVisible: (visible: boolean) => void
+  setAnchorOnionSkin: (visible: boolean) => void
+  setAnchorSnapMode: (mode: AnchorSnapMode) => void
+  updateFrameAlignment: (frameId: string, patch: Partial<FrameAlignment>) => void
+  updateActionAlignment: (patch: Partial<ActionAlignment>) => void
+  applyAnchorPresetToAll: (preset: AnchorPreset) => void
   pairNormal: (frameId: string, candidate?: TextureRef) => void
   setBackend: (backend: BackendPreference) => void
   setTextureMode: (mode: PreviewTextureMode) => void
@@ -121,11 +139,63 @@ function selectedActionFor(bundle: AssetBundle, actionId?: string): AnimationCli
   return bundle.animations.find((animation) => animation.id === actionId) ?? bundle.animations[0]
 }
 
+function frameDimensions(bundle: AssetBundle, frameId: string): { width: number; height: number } {
+  const frame = bundle.frames.find((candidate) => candidate.id === frameId)
+  if (!frame) return { width: 1, height: 1 }
+  const image = bundle.images.find((candidate) => candidate.id === frame.source.imageId)
+  return {
+    width: frame.source.rect?.width ?? image?.width ?? 1,
+    height: frame.source.rect?.height ?? image?.height ?? 1,
+  }
+}
+
+function ensureActionAlignment(bundle: AssetBundle, actionId?: string): AssetBundle {
+  const action = selectedActionFor(bundle, actionId)
+  if (!action) return bundle
+  const actionFrameIds = new Set(action.frameIds)
+  const frames = bundle.frames.map((frame) => {
+    if (!actionFrameIds.has(frame.id)) return frame
+    const dimensions = frameDimensions(bundle, frame.id)
+    return {
+      ...frame,
+      alignment: frame.alignment ?? resolveFrameAlignment(dimensions.width, dimensions.height, 'bottom-center'),
+    }
+  })
+  const alignedFrames = frames
+    .filter((frame) => actionFrameIds.has(frame.id))
+    .map((frame) => {
+      const dimensions = frameDimensions(bundle, frame.id)
+      return {
+        id: frame.id,
+        width: dimensions.width,
+        height: dimensions.height,
+        alignment: frame.alignment ?? resolveFrameAlignment(dimensions.width, dimensions.height, 'bottom-center'),
+      }
+    })
+  const alignment = computeActionAlignment(alignedFrames)
+  return {
+    ...bundle,
+    frames,
+    animations: bundle.animations.map((animation) =>
+      animation.id === action.id ? { ...animation, alignment } : animation,
+    ),
+  }
+}
+
+function recalculateActionAlignment(bundle: AssetBundle, actionId?: string): AssetBundle {
+  return ensureActionAlignment(bundle, actionId)
+}
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   warnings: [],
   currentFrameIndex: 0,
   isPlaying: false,
   isImporting: false,
+  anchorCalibrationEnabled: false,
+  anchorCalibrationZoom: 8,
+  anchorGridVisible: true,
+  anchorOnionSkin: true,
+  anchorSnapMode: 'pixel-center',
   settings: {
     backend: 'webgl',
     textureMode: 'color',
@@ -147,6 +217,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       currentFrameIndex: 0,
       isPlaying: false,
       isImporting: false,
+      anchorCalibrationEnabled: false,
       notice: {
         tone: warnings.some((warning) => warning.severity === 'error') ? 'warning' : 'success',
         message: `已导入 ${bundle.frames.length} 帧、${bundle.animations.length} 个动作。`,
@@ -171,8 +242,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         warnings,
         selectedActionId: bundle.animations[0]?.id,
         currentFrameIndex: 0,
-        isPlaying: bundle.animations[0]?.frameIds.length ? false : false,
+        isPlaying: false,
         isImporting: false,
+        anchorCalibrationEnabled: false,
         notice: {
           tone: warnings.some((warning) => warning.severity === 'error') ? 'warning' : 'success',
           message: `已导入 ${bundle.frames.length} 帧、${bundle.animations.length} 个动作。`,
@@ -206,6 +278,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         currentFrameIndex: 0,
         isPlaying: false,
         isImporting: false,
+        anchorCalibrationEnabled: false,
         notice: {
           tone: warnings.some((warning) => warning.severity === 'error') ? 'warning' : 'success',
           message: `网格导入完成：${bundle.frames.length} 帧、${bundle.animations.length} 个动作。`,
@@ -246,6 +319,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         currentFrameIndex: 0,
         isPlaying: false,
         isImporting: false,
+        anchorCalibrationEnabled: false,
         settings: mergeSettings(get().settings, document.settings),
         notice: { tone: 'success', message: '\u9879\u76ee\u4e0e\u7d20\u6750\u5df2\u6062\u590d\u3002' },
       })
@@ -274,6 +348,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedActionId: nextBundle.animations[0]?.id,
       currentFrameIndex: 0,
       isPlaying: false,
+      anchorCalibrationEnabled: false,
       settings: mergeSettings(get().settings, document.settings),
       notice: { tone: 'success', message: '\u9879\u76ee\u914d\u7f6e\u5df2\u5e94\u7528\u5230\u5f53\u524d\u7d20\u6750\u3002' },
     })
@@ -287,6 +362,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       warnings: [],
       selectedActionId: undefined,
       currentFrameIndex: 0,
+      anchorCalibrationEnabled: false,
       isPlaying: false,
       isImporting: false,
       notice: undefined,
@@ -324,9 +400,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   selectAction: (actionId) => {
-    const { bundle } = get()
-    const action = bundle ? selectedActionFor(bundle, actionId) : undefined
+    const state = get()
+    const action = state.bundle ? selectedActionFor(state.bundle, actionId) : undefined
+    const bundle =
+      state.bundle && state.anchorCalibrationEnabled
+        ? ensureActionAlignment(state.bundle, action?.id)
+        : state.bundle
     set({
+      bundle,
       selectedActionId: action?.id,
       currentFrameIndex: 0,
       isPlaying: false,
@@ -446,6 +527,84 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const currentFrameId = selectedActionFor(bundle, actionId)?.frameIds[get().currentFrameIndex]
     const nextIndex = currentFrameId ? action?.frameIds.indexOf(currentFrameId) ?? 0 : 0
     set({ bundle: { ...bundle, animations }, currentFrameIndex: Math.max(0, nextIndex) })
+  },
+
+  setAnchorCalibrationEnabled: (enabled) => {
+    const state = get()
+    const bundle = state.bundle
+    if (enabled && bundle) {
+      const nextBundle = ensureActionAlignment(bundle, state.selectedActionId)
+      set({ bundle: nextBundle, anchorCalibrationEnabled: true, isPlaying: false })
+      return
+    }
+    set({ anchorCalibrationEnabled: enabled, isPlaying: false })
+  },
+
+  setAnchorCalibrationZoom: (zoom) => {
+    const safeZoom = Math.max(1, Math.min(24, Math.round(zoom)))
+    set({ anchorCalibrationZoom: safeZoom })
+  },
+
+  setAnchorGridVisible: (anchorGridVisible) => set({ anchorGridVisible }),
+  setAnchorOnionSkin: (anchorOnionSkin) => set({ anchorOnionSkin }),
+  setAnchorSnapMode: (anchorSnapMode) => set({ anchorSnapMode }),
+
+  updateFrameAlignment: (frameId, patch) => {
+    const state = get()
+    if (!state.bundle) return
+    const frames = state.bundle.frames.map((frame) => {
+      if (frame.id !== frameId) return frame
+      const dimensions = frameDimensions(state.bundle!, frame.id)
+      return {
+        ...frame,
+        alignment: {
+          ...(frame.alignment ?? resolveFrameAlignment(dimensions.width, dimensions.height, 'bottom-center')),
+          ...patch,
+        },
+      }
+    })
+    const nextBundle = recalculateActionAlignment({ ...state.bundle, frames }, state.selectedActionId)
+    set({ bundle: nextBundle })
+  },
+
+  updateActionAlignment: (patch) => {
+    const state = get()
+    const initialAction = state.bundle ? selectedActionFor(state.bundle, state.selectedActionId) : undefined
+    if (!state.bundle || !initialAction) return
+    const preparedBundle = initialAction.alignment
+      ? state.bundle
+      : ensureActionAlignment(state.bundle, initialAction.id)
+    const action = selectedActionFor(preparedBundle, initialAction.id)
+    if (!action?.alignment) return
+    const nextBundle = {
+      ...preparedBundle,
+      animations: preparedBundle.animations.map((animation) =>
+        animation.id === action.id ? { ...animation, alignment: { ...action.alignment!, ...patch } } : animation,
+      ),
+    }
+    set({ bundle: nextBundle })
+  },
+
+  applyAnchorPresetToAll: (preset) => {
+    const state = get()
+    const action = state.bundle ? selectedActionFor(state.bundle, state.selectedActionId) : undefined
+    if (!state.bundle || !action) return
+    const actionFrameIds = new Set(action.frameIds)
+    const frames = state.bundle.frames.map((frame) => {
+      if (!actionFrameIds.has(frame.id)) return frame
+      const dimensions = frameDimensions(state.bundle!, frame.id)
+      const presetAlignment = resolveFrameAlignment(dimensions.width, dimensions.height, preset)
+      return {
+        ...frame,
+        alignment: {
+          ...presetAlignment,
+          offsetX: frame.alignment?.offsetX ?? 0,
+          offsetY: frame.alignment?.offsetY ?? 0,
+        },
+      }
+    })
+    const nextBundle = recalculateActionAlignment({ ...state.bundle, frames }, action.id)
+    set({ bundle: nextBundle })
   },
 
   pairNormal: (frameId, candidate) => {

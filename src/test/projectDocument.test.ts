@@ -59,11 +59,21 @@ describe('project document', () => {
     )
 
     document.lighting.lights[1].showUi = false
+    document.frames[0].alignment = { pivotX: 32, pivotY: 64, offsetX: 0, offsetY: 0 }
+    document.animations[0].alignment = {
+      canvasWidth: 64,
+      canvasHeight: 128,
+      anchorX: 32,
+      anchorY: 128,
+      scale: 1,
+    }
     const restored = parseProjectDocument(serializeProjectDocument(document))
     expect(restored.version).toBe(2)
     expect(restored.projectName).toBe('测试角色')
     expect(restored.normalPairing[0].normalId).toBe('normal:1')
     expect(restored.lighting.lights[1].showUi).toBe(false)
+    expect(restored.frames[0].alignment?.pivotX).toBe(32)
+    expect(restored.animations[0].alignment?.canvasHeight).toBe(128)
   })
 
   it('upgrades version 1 documents without losing settings', () => {

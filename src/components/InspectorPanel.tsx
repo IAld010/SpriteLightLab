@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getCurrentFrame, useEditorStore } from '../store/editorStore'
+import { AnchorCalibrationPanel } from './AnchorCalibrationPanel'
 import { LightingPanel } from './LightingPanel'
 import { ProjectPanel } from './ProjectPanel'
 import { PalettePanel } from './PalettePanel'
@@ -9,7 +10,7 @@ interface InspectorPanelProps {
   onOpenLibrary: () => void
 }
 
-type InspectorTab = 'palette' | 'lighting' | 'frame' | 'project'
+type InspectorTab = 'palette' | 'lighting' | 'anchor' | 'frame' | 'project'
 
 export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanelProps) {
   const [tab, setTab] = useState<InspectorTab>('palette')
@@ -32,7 +33,7 @@ export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanel
 
   return (
     <aside className="panel inspector-panel">
-      <div className="inspector-tabs inspector-tabs-four" role="tablist">
+      <div className="inspector-tabs inspector-tabs-four inspector-tabs-five" role="tablist">
         <button
           type="button"
           className={tab === 'palette' ? 'is-active' : ''}
@@ -47,6 +48,7 @@ export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanel
         >
           光照
         </button>
+
         <button
           type="button"
           className={tab === 'frame' ? 'is-active' : ''}
@@ -61,10 +63,18 @@ export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanel
         >
           工程
         </button>
+        <button
+          type="button"
+          className={tab === 'anchor' ? 'is-active' : ''}
+          onClick={() => setTab('anchor')}
+        >
+          {'\u951a\u70b9'}
+        </button>
       </div>
 
       {tab === 'palette' && <PalettePanel />}
       {tab === 'lighting' && <LightingPanel />}
+      {tab === 'anchor' && <AnchorCalibrationPanel />}
 
       {tab === 'frame' && (
         <div className="inspector-content">

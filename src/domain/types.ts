@@ -40,6 +40,24 @@ export interface TextureRef {
   rect?: Rect
 }
 
+export type AnchorPreset = 'center' | 'bottom-center' | 'manual'
+export type AnchorSnapMode = 'pixel-center' | 'pixel-boundary' | 'free'
+
+export interface FrameAlignment {
+  pivotX: number
+  pivotY: number
+  offsetX: number
+  offsetY: number
+}
+
+export interface ActionAlignment {
+  canvasWidth: number
+  canvasHeight: number
+  anchorX: number
+  anchorY: number
+  scale: number
+}
+
 export interface PreviewFrame {
   id: string
   name: string
@@ -48,6 +66,7 @@ export interface PreviewFrame {
   pairingStatus: PairingStatus
   note?: string
   durationMs?: number
+  alignment?: FrameAlignment
 }
 
 export interface AnimationClip {
@@ -56,6 +75,7 @@ export interface AnimationClip {
   frameIds: string[]
   fps: number
   loop: boolean
+  alignment?: ActionAlignment
 }
 
 export type WarningSeverity = 'warning' | 'error'
