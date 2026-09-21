@@ -666,18 +666,38 @@ test('anchor calibration aligns 64x64, 64x128 and 128x128 frames at one scale', 
   await expect(inputs.nth(1)).toHaveValue('10.5')
   const fixedSurfaceAfter = await fixedSurface.boundingBox()
   expect(fixedSurfaceAfter).toEqual(fixedSurfaceBefore)
-  await page.locator('.anchor-zoom-row .mini-button').nth(2).click()
+  const zoomSlider = page.locator('.anchor-zoom-slider input[type="range"]')
+  await zoomSlider.fill('4')
   await expect(page.getByTestId('anchor-pixel-grid')).toHaveCount(0)
-  await page.locator('.anchor-zoom-row .mini-button').nth(3).click()
+  await zoomSlider.fill('8')
   await expect(page.getByTestId('anchor-pixel-grid')).toBeVisible()
+  await zoomSlider.fill('24')
+  await page.waitForTimeout(100)
+  const centeredViewport = await page.locator('.anchor-calibration-viewport').boundingBox()
+  const centeredSurface = await page.getByTestId('anchor-calibration-surface').boundingBox()
+  expect(centeredViewport).not.toBeNull()
+  expect(centeredSurface).not.toBeNull()
+  expect(
+    Math.abs(
+      centeredSurface!.x + centeredSurface!.width / 2 -
+        (centeredViewport!.x + centeredViewport!.width / 2),
+    ),
+  ).toBeLessThanOrEqual(2)
+  expect(
+    Math.abs(
+      centeredSurface!.y + centeredSurface!.height / 2 -
+        (centeredViewport!.y + centeredViewport!.height / 2),
+    ),
+  ).toBeLessThanOrEqual(2)
+  await zoomSlider.fill('8')
   await inputs.nth(0).fill('32')
   await inputs.nth(1).fill('64')
 
-  await page.locator('.frame-item').nth(1).click()
+  await page.getByTestId('anchor-frame-select').selectOption({ index: 1 })
   await expect(inputs.nth(0)).toHaveValue('32')
   await expect(inputs.nth(1)).toHaveValue('128')
 
-  await page.locator('.frame-item').nth(2).click()
+  await page.getByTestId('anchor-frame-select').selectOption({ index: 2 })
   await expect(inputs.nth(0)).toHaveValue('64')
   await expect(inputs.nth(1)).toHaveValue('128')
   const wideSurface = await page.getByTestId('anchor-calibration-surface').boundingBox()

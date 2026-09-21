@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef } from 'react'
+﻿import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { resolveFrameAlignment } from '../domain/alignment'
 import type { PreviewFrame } from '../domain/types'
 import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
@@ -93,6 +93,7 @@ export function AnchorCalibrationOverlay() {
   const snapMode = useEditorStore((state) => state.anchorSnapMode)
   const updateFrameAlignment = useEditorStore((state) => state.updateFrameAlignment)
   const surfaceRef = useRef<HTMLDivElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
 
   const currentSize = useMemo(
     () => (bundle && currentFrame ? frameDimensions(bundle, currentFrame) : { width: 1, height: 1 }),
@@ -107,6 +108,16 @@ export function AnchorCalibrationOverlay() {
   const nextFrame = action && currentFrameIndex + 1 < action.frameIds.length
     ? bundle?.frames.find((frame) => frame.id === action.frameIds[currentFrameIndex + 1])
     : undefined
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const frame = requestAnimationFrame(() => {
+      viewport.scrollLeft = Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2)
+      viewport.scrollTop = Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [currentFrame?.id, currentSize.height, currentSize.width, zoom])
 
   if (!bundle || !currentFrame || !currentAlignment) {
     return null
@@ -145,7 +156,7 @@ export function AnchorCalibrationOverlay() {
         <span>X {currentAlignment.pivotX} / Y {currentAlignment.pivotY}</span>
         <span>{zoom}×</span>
       </div>
-      <div className="anchor-calibration-viewport">
+      <div ref={viewportRef} className="anchor-calibration-viewport">
         <div
           ref={surfaceRef}
           className="anchor-calibration-surface"

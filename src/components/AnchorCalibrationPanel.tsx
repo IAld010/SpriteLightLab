@@ -24,6 +24,7 @@ export function AnchorCalibrationPanel() {
   const onionSkin = useEditorStore((state) => state.anchorOnionSkin)
   const snapMode = useEditorStore((state) => state.anchorSnapMode)
   const setEnabled = useEditorStore((state) => state.setAnchorCalibrationEnabled)
+  const selectFrame = useEditorStore((state) => state.selectFrame)
   const setZoom = useEditorStore((state) => state.setAnchorCalibrationZoom)
   const setGridVisible = useEditorStore((state) => state.setAnchorGridVisible)
   const setOnionSkin = useEditorStore((state) => state.setAnchorOnionSkin)
@@ -77,6 +78,19 @@ export function AnchorCalibrationPanel() {
           <strong>当前帧</strong>
           <span>{size.width} × {size.height} px</span>
         </div>
+        <label className="field">
+          <span>{'\u5f53\u524d\u5e27'}</span>
+          <select data-testid="anchor-frame-select" value={currentFrame.id} onChange={(event) => selectFrame(event.target.value)}>
+            {action.frameIds.map((frameId, index) => {
+              const frame = bundle.frames.find((candidate) => candidate.id === frameId)
+              return frame ? (
+                <option value={frame.id} key={frame.id}>
+                  {index + 1}. {frame.name}
+                </option>
+              ) : null
+            })}
+          </select>
+        </label>
         <div className="anchor-number-grid">
           <label>
             <span>锚点 X</span>
@@ -157,19 +171,19 @@ export function AnchorCalibrationPanel() {
             <option value="free">自由坐标</option>
           </select>
         </label>
-        <div className="anchor-zoom-row">
-          <span>缩放</span>
-          {[1, 2, 4, 8, 16].map((value) => (
-            <button
-              type="button"
-              key={value}
-              className={`mini-button ${zoom === value ? 'is-active' : ''}`}
-              onClick={() => setZoom(value)}
-            >
-              {value}×
-            </button>
-          ))}
-        </div>
+        <label className="anchor-zoom-slider">
+          <span>{'\u7f29\u653e'}</span>
+          <input
+            type="range"
+            min="1"
+            max="24"
+            step="1"
+            value={zoom}
+            aria-label="Anchor calibration zoom"
+            onChange={(event) => setZoom(Number(event.target.value))}
+          />
+          <output>{zoom}?</output>
+        </label>
       </section>
 
       <section className="inspector-section">

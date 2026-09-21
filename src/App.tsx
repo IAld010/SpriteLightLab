@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import { ActionSidebar } from './components/ActionSidebar'
+import { AnchorCalibrationPage } from './components/AnchorCalibrationPage'
 import { GridImportDialog } from './components/GridImportDialog'
 import { ManualMatchPage } from './components/ManualMatchPage'
 import { InspectorPanel } from './components/InspectorPanel'
@@ -53,6 +54,7 @@ export default function App() {
   const projectCreatedAt = useEditorStore((state) => state.projectCreatedAt)
   const isImporting = useEditorStore((state) => state.isImporting)
   const isPlaying = useEditorStore((state) => state.isPlaying)
+  const anchorCalibrationEnabled = useEditorStore((state) => state.anchorCalibrationEnabled)
   const notice = useEditorStore((state) => state.notice)
   const importProjectFiles = useEditorStore((state) => state.importProjectFiles)
   const clearProject = useEditorStore((state) => state.clearProject)
@@ -368,6 +370,8 @@ export default function App() {
           onRenameProject={(id, name) => void renameLibraryProject(id, name)}
           onClose={() => setShowLibrary(false)}
         />
+      ) : anchorCalibrationEnabled ? (
+        <AnchorCalibrationPage />
       ) : (
         <main className="workspace">
           <ActionSidebar />

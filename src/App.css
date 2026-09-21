@@ -2545,10 +2545,79 @@
   background: #0c121b;
 }
 
+.anchor-calibration-page {
+  display: grid;
+  grid-template-rows: 54px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  background: #080b11;
+}
+
+.anchor-calibration-page-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid #202a39;
+  background: #0d131c;
+}
+
+.anchor-calibration-page-header > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: #8b98ac;
+  font-size: 10px;
+}
+
+.anchor-calibration-page-header strong {
+  color: #dce5f3;
+  font-size: 13px;
+}
+
+.anchor-calibration-page-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.anchor-calibration-page-inspector {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid #202a39;
+  background: #0b0f16;
+}
+
+.anchor-calibration-page-inspector .inspector-content {
+  overflow: visible;
+}
+
+.anchor-zoom-slider {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) 42px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: #8290a7;
+  font-size: 9px;
+}
+
+.anchor-zoom-slider input {
+  width: 100%;
+  accent-color: #6b8de9;
+}
+
+.anchor-zoom-slider output {
+  color: #dce5f3;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-align: right;
+}
+
 .anchor-calibration-overlay {
-  position: absolute;
-  z-index: 8;
-  inset: 0;
+  position: relative;
+  z-index: auto;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -2576,6 +2645,8 @@
 .anchor-calibration-viewport {
   position: relative;
   flex: 1;
+  display: grid;
+  place-items: safe center;
   min-height: 0;
   overflow: auto;
   padding: 24px;

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnchorCalibrationOverlay } from './AnchorCalibrationOverlay'
 import { LightOverlay } from './LightOverlay'
 import type { PreviewBackground, PreviewTextureMode } from '../domain/types'
 import { PreviewRenderer } from '../renderer/PreviewRenderer'
@@ -40,7 +39,6 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
   const resetView = useEditorStore((state) => state.resetView)
   const currentFrame = useEditorStore((state) => getCurrentFrame(state))
   const selectedAction = useEditorStore((state) => getSelectedAction(state))
-  const anchorCalibrationEnabled = useEditorStore((state) => state.anchorCalibrationEnabled)
   const paletteMode = bundle?.paletteMode ?? 'fullcolor'
   const paletteSources = bundle?.paletteSources ?? EMPTY_PALETTE_SOURCES
   const palette = useProjectStore((state) => activePaletteFromState(state))
@@ -209,14 +207,13 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
           </small>
         </div>
       )}
-      {!anchorCalibrationEnabled && <LightOverlay />}
-      {anchorCalibrationEnabled && <AnchorCalibrationOverlay />}
-      {!anchorCalibrationEnabled && <div className="canvas-corner-label">
+      <LightOverlay />
+      <div className="canvas-corner-label">
         {textureMode === 'normal'
           ? '\u6cd5\u7ebf\u56fe\u9884\u89c8'
           : '\u989c\u8272\u56fe\u9884\u89c8'}{' '}
         · {Math.round(zoom * 100)}%
-      </div>}
+      </div>
     </div>
   )
 }
