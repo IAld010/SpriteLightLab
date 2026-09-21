@@ -100,7 +100,7 @@ export function ProjectLibraryPage({
               >
                 <div className="project-card-heading">
                   <div className="project-card-mark" aria-hidden="true">
-                    {project.sourceMode === 'atlas' ? 'AT' : project.sourceMode === 'grid' ? 'GR' : 'PN'}
+                    {project.sourceMode === 'atlas' ? 'AT' : project.sourceMode === 'grid' ? 'GR' : project.sourceMode === 'regions' ? 'RG' : 'PN'}
                   </div>
                   <div>
                     <h2>{project.name}</h2>

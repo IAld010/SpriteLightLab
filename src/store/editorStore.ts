@@ -13,6 +13,7 @@ import {
   collectCurrentWarnings,
   importFiles as importAssetFiles,
   importGridFiles as importGridAssetFiles,
+  importRegionFiles as importRegionAssetFiles,
   updateFrameNormal,
 } from '../domain/importAssets'
 import type {
@@ -29,6 +30,7 @@ import type {
   PreviewBackground,
   PreviewTextureMode,
   ProjectDocument,
+  RegionImportConfig,
   TextureRef,
 } from '../domain/types'
 
@@ -63,6 +65,11 @@ interface EditorState {
     colorFile: File,
     normalFile: File | undefined,
     config: GridImportConfig,
+  ) => Promise<boolean>
+  importRegionFiles: (
+    colorFile: File,
+    normalFile: File | undefined,
+    config: RegionImportConfig,
   ) => Promise<boolean>
   importProjectFiles: (files: File[], document: ProjectDocument, session?: ProjectSession) => Promise<void>
   applyProjectDocument: (document: ProjectDocument) => void
@@ -110,11 +117,11 @@ function mergeSettings(base: EditorSettings, imported?: Partial<EditorSettings>)
   }
 }
 
-function gridFilesFromDocument(
+function cropFilesFromDocument(
   files: File[],
   document: ProjectDocument,
 ): { colorFile: File; normalFile?: File } | undefined {
-  if (document.version !== 2 || !document.gridConfig) {
+  if (document.version !== 2 || (!document.gridConfig && !document.regionConfig)) {
     return undefined
   }
   const imageAssets = document.assets.filter((asset) => asset.kind === 'image')
@@ -302,11 +309,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
     set({ isImporting: true, notice: { tone: 'info', message: '\u6b63\u5728\u6062\u590d\u9879\u76ee\u4e0e\u7d20\u6750\u2026' } })
     try {
-      const gridFiles = gridFilesFromDocument(files, document)
+      const cropFiles = cropFilesFromDocument(files, document)
       const imported =
-        gridFiles && document.version === 2 && document.gridConfig
-          ? await importGridAssetFiles(gridFiles.colorFile, gridFiles.normalFile, document.gridConfig)
-          : await importAssetFiles(files)
+        cropFiles && document.version === 2 && document.regionConfig
+          ? await importRegionAssetFiles(cropFiles.colorFile, cropFiles.normalFile, document.regionConfig)
+          : cropFiles && document.version === 2 && document.gridConfig
+            ? await importGridAssetFiles(cropFiles.colorFile, cropFiles.normalFile, document.gridConfig)
+            : await importAssetFiles(files)
       const bundle = applyProjectDocumentToBundle(imported, document)
       useProjectStore.getState().applyProjectState(projectStateFromDocument(document))
       const warnings = collectCurrentWarnings(bundle)
@@ -605,6 +614,42 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })
     const nextBundle = recalculateActionAlignment({ ...state.bundle, frames }, action.id)
     set({ bundle: nextBundle })
+  },
+
+  importRegionFiles: async (colorFile, normalFile, config) => {
+    set({ isImporting: true, notice: { tone: 'info', message: '??????????' } })
+    try {
+      const bundle = await importRegionAssetFiles(colorFile, normalFile, config)
+      const warnings = collectCurrentWarnings(bundle)
+      const projectId = createProjectId()
+      const projectCreatedAt = new Date().toISOString()
+      useProjectStore.getState().initializeFromBundle(bundle)
+      set({
+        bundle,
+        projectId,
+        projectCreatedAt,
+        warnings,
+        selectedActionId: bundle.animations[0]?.id,
+        currentFrameIndex: 0,
+        isPlaying: false,
+        isImporting: false,
+        anchorCalibrationEnabled: false,
+        notice: {
+          tone: warnings.some((warning) => warning.severity === 'error') ? 'warning' : 'success',
+          message: `???????${bundle.frames.length} ??${bundle.animations.length} ????`,
+        },
+      })
+      return true
+    } catch (error) {
+      set({
+        isImporting: false,
+        notice: {
+          tone: 'error',
+          message: error instanceof Error ? error.message : '??????????',
+        },
+      })
+      return false
+    }
   },
 
   pairNormal: (frameId, candidate) => {

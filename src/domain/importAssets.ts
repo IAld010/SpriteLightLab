@@ -1,5 +1,6 @@
 import { AtlasParseError, atlasContainsRotatedFrames, parseAtlasJson, validateAtlasLayout } from './atlasParser'
 import { createGridBundle } from './gridImport'
+import { createRegionBundle } from './regionImport'
 import { groupFramesIntoAnimations, isNormalFileName, pairFrameImages } from './frameImport'
 import { analyzeBundlePalette } from './paletteAnalysis'
 import { baseFileName, fileExtension, normalizePath, slugify, stripExtension, uniqueId } from './pathUtils'
@@ -9,6 +10,7 @@ import type {
   AtlasData,
   ImportWarning,
   PreviewFrame,
+  RegionImportConfig,
   RuntimeImage,
   TextureRef,
 } from './types'
@@ -415,6 +417,22 @@ export async function importGridFiles(
   const normalImage = normalFile ? await readRuntimeImage(normalFile) : undefined
   return analyzeBundlePalette(
     createGridBundle({
+      colorImage,
+      normalImage,
+      config,
+    }),
+  )
+}
+
+export async function importRegionFiles(
+  colorFile: File,
+  normalFile: File | undefined,
+  config: RegionImportConfig,
+): Promise<AssetBundle> {
+  const colorImage = await readRuntimeImage(colorFile)
+  const normalImage = normalFile ? await readRuntimeImage(normalFile) : undefined
+  return analyzeBundlePalette(
+    createRegionBundle({
       colorImage,
       normalImage,
       config,

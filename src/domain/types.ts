@@ -1,4 +1,4 @@
-export type ImportMode = 'frames' | 'atlas' | 'grid'
+export type ImportMode = 'frames' | 'atlas' | 'grid' | 'regions'
 export type PairingStatus = 'matched' | 'manual' | 'missing' | 'mismatch'
 export type BackendPreference = 'webgl' | 'webgpu'
 export type PreviewTextureMode = 'color' | 'normal'
@@ -9,6 +9,22 @@ export interface Rect {
   y: number
   width: number
   height: number
+}
+
+export type RegionBackgroundMode = 'transparent' | 'color'
+
+export interface RegionImportConfig {
+  mode: 'auto' | 'manual'
+  alphaThreshold: number
+  backgroundMode: RegionBackgroundMode
+  backgroundColor: string
+  colorTolerance: number
+  minRegionWidth: number
+  minRegionHeight: number
+  mergeDistance: number
+  padding: number
+  frameOrder: 'row-major' | 'column-major'
+  regions: Rect[]
 }
 
 export interface GridImportConfig {
@@ -101,6 +117,7 @@ export interface AssetBundle {
   paletteSources: string[]
   metadataFiles?: Array<{ name: string; file: File }>
   gridConfig?: GridImportConfig
+  regionConfig?: RegionImportConfig
   warnings: ImportWarning[]
 }
 
@@ -232,6 +249,7 @@ export interface ProjectDocumentV1 {
 export interface ProjectDocumentV2 extends Omit<ProjectDocumentV1, 'version'> {
   version: 2
   gridConfig?: GridImportConfig
+  regionConfig?: RegionImportConfig
 }
 
 export type ProjectDocument = ProjectDocumentV1 | ProjectDocumentV2

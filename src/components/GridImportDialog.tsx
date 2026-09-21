@@ -5,7 +5,9 @@ import {
   validateGridConfig,
   type GridImageSize,
 } from '../domain/gridImport'
-import type { GridImportConfig, Rect } from '../domain/types'
+import type { GridImportConfig, Rect, RegionImportConfig } from '../domain/types'
+import { DEFAULT_REGION_CONFIG, validateRegionConfig } from '../domain/regionImport'
+import { RegionImportWorkspace } from './RegionImportWorkspace'
 import { useEditorStore } from '../store/editorStore'
 import { ImportRulesPanel } from './ImportRulesPanel'
 
@@ -126,6 +128,7 @@ function GridPreview({
 
 export function GridImportDialog({ onClose }: GridImportDialogProps) {
   const importGridFiles = useEditorStore((state) => state.importGridFiles)
+  const importRegionFiles = useEditorStore((state) => state.importRegionFiles)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const colorInputRef = useRef<HTMLInputElement>(null)
   const normalInputRef = useRef<HTMLInputElement>(null)
@@ -133,7 +136,9 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
   const [normalFile, setNormalFile] = useState<File>()
   const [colorSize, setColorSize] = useState<GridImageSize>()
   const [normalSize, setNormalSize] = useState<GridImageSize>()
+  const [cropMode, setCropMode] = useState<'grid' | 'regions'>('grid')
   const [config, setConfig] = useState<GridImportConfig>(DEFAULT_GRID)
+  const [regionConfig, setRegionConfig] = useState<RegionImportConfig>(DEFAULT_REGION_CONFIG)
   const [customConfig, setCustomConfig] = useState(false)
   const [fileError, setFileError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -150,15 +155,18 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
   }, [busy, onClose])
 
   const warnings = colorSize
-    ? validateGridConfig(config, colorSize, normalSize)
+    ? cropMode === 'grid'
+      ? validateGridConfig(config, colorSize, normalSize)
+      : validateRegionConfig(regionConfig, colorSize, normalSize)
     : []
   const errors = warnings.filter((warning) => warning.severity === 'error')
-  const rects =
-    colorSize &&
-    config.frameWidth > 0 &&
-    config.frameHeight > 0 &&
-    config.columns > 0 &&
-    config.rows > 0
+  const rects = cropMode === 'regions'
+    ? regionConfig.regions
+    : colorSize &&
+        config.frameWidth > 0 &&
+        config.frameHeight > 0 &&
+        config.columns > 0 &&
+        config.rows > 0
       ? createGridRects(config)
       : []
 
@@ -176,6 +184,7 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
       const size = await readGridImageSize(file)
       setColorFile(file)
       setColorSize(size)
+      setRegionConfig({ ...DEFAULT_REGION_CONFIG })
       if (!customConfig) {
         setConfig(defaultGridFor(size))
       }
@@ -221,7 +230,9 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
       return
     }
     setBusy(true)
-    const imported = await importGridFiles(colorFile, normalFile, config)
+    const imported = cropMode === 'grid'
+      ? await importGridFiles(colorFile, normalFile, config)
+      : await importRegionFiles(colorFile, normalFile, regionConfig)
     setBusy(false)
     if (imported) {
       onClose()
@@ -240,15 +251,42 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
         <header className="grid-import-header">
           <div>
             <div className="eyebrow">大图裁切</div>
-            <h1 id="grid-import-title">网格精灵与法线图</h1>
-            <p>选择颜色大图和可选法线大图，使用同一组网格参数生成动画帧。</p>
+            <h1 id="grid-import-title">{cropMode === 'grid' ? '\u56fa\u5b9a\u7f51\u683c\u5207\u56fe' : '\u4e0d\u89c4\u5219\u533a\u57df\u5207\u56fe'}</h1>
+            <p>{cropMode === 'grid' ? '\u4f7f\u7528\u5e27\u5bbd\u3001\u5e27\u9ad8\u3001\u884c\u5217\u548c\u95f4\u8dd2\u9012\u884c\u89c4\u5219\u5207\u56fe\u3002' : '\u81ea\u52a8\u68c0\u6d4b\u900f\u660e\u5206\u9694\u7684\u533a\u57df\uff0c\u4e5f\u53ef\u4ee5\u624b\u52a8\u62d6\u52a8\u3001\u7f29\u653e\u3001\u65b0\u589e\u548c\u5408\u5e76\u77e9\u5f62\u3002'}</p>
+            <div className="grid-import-mode-switch">
+              <button type="button" className={cropMode === 'grid' ? 'is-active' : ''} onClick={() => setCropMode('grid')}>{'\u56fa\u5b9a\u7f51\u683c'}</button>
+              <button type="button" className={cropMode === 'regions' ? 'is-active' : ''} onClick={() => setCropMode('regions')}>{'\u4e0d\u89c4\u5219\u533a\u57df'}</button>
+            </div>
           </div>
           <button ref={closeButtonRef} type="button" className="button" onClick={onClose} disabled={busy}>
             关闭
           </button>
         </header>
 
+              <input
+                ref={colorInputRef}
+                className="visually-hidden"
+                type="file"
+                accept="image/png,image/*"
+                onChange={(event) => {
+                  void chooseColorFile(event.target.files?.[0])
+                  event.target.value = ''
+                }}
+              />
+              <input
+                ref={normalInputRef}
+                className="visually-hidden"
+                type="file"
+                accept="image/png,image/*"
+                onChange={(event) => {
+                  void chooseNormalFile(event.target.files?.[0])
+                  event.target.value = ''
+                }}
+              />
+
         <div className="grid-import-content">
+          {cropMode === 'grid' ? (
+            <>
           <aside className="grid-import-settings">
             <section className="inspector-section">
               <strong>选择图片</strong>
@@ -288,26 +326,7 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
                   </button>
                 )}
               </div>
-              <input
-                ref={colorInputRef}
-                className="visually-hidden"
-                type="file"
-                accept="image/png,image/*"
-                onChange={(event) => {
-                  void chooseColorFile(event.target.files?.[0])
-                  event.target.value = ''
-                }}
-              />
-              <input
-                ref={normalInputRef}
-                className="visually-hidden"
-                type="file"
-                accept="image/png,image/*"
-                onChange={(event) => {
-                  void chooseNormalFile(event.target.files?.[0])
-                  event.target.value = ''
-                }}
-              />
+
             </section>
 
             <section className="inspector-section">
@@ -380,6 +399,18 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
           </section>
 
           <ImportRulesPanel colorSize={colorSize} normalSize={normalSize} />
+            </>
+          ) : (
+            <RegionImportWorkspace
+              colorFile={colorFile}
+              normalFile={normalFile}
+              colorSize={colorSize}
+              normalSize={normalSize}
+              config={regionConfig}
+              onChange={setRegionConfig}
+              onError={setFileError}
+            />
+          )}
         </div>
 
         <footer className="grid-import-footer">

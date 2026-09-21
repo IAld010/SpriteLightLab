@@ -788,6 +788,77 @@ test('anchor calibration aligns 64x64, 64x128 and 128x128 frames at one scale', 
   await expect(page.locator('.anchor-number-grid input').nth(0)).toHaveValue('32')
   await expect(page.locator('.anchor-number-grid input').nth(1)).toHaveValue('64')
 })
+
+test('non-grid region import auto-detects and supports manual rectangle editing', async ({ page }) => {
+  await page.goto('/')
+  await page.getByTestId('open-grid-import').click()
+  await page.locator('.grid-import-mode-switch button').nth(1).click()
+
+  const generated = await page.evaluate(() => {
+    const make = (normal: boolean) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 128
+      canvas.height = 128
+      const context = canvas.getContext('2d')!
+      if (normal) {
+        context.fillStyle = 'rgb(128,128,255)'
+        context.fillRect(0, 0, 128, 128)
+      } else {
+        context.fillStyle = 'rgb(255,80,80)'
+        context.fillRect(10, 10, 20, 30)
+        context.fillRect(60, 20, 30, 50)
+      }
+      return canvas.toDataURL('image/png').split(',')[1]
+    }
+    return { color: make(false), normal: make(true) }
+  })
+
+  const inputs = page.locator('.grid-import-dialog input[type="file"]')
+  await inputs.nth(0).setInputFiles({
+    name: 'sheet_color.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(generated.color, 'base64'),
+  })
+  await inputs.nth(1).setInputFiles({
+    name: 'sheet_normal.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(generated.normal, 'base64'),
+  })
+
+  const regionImage = page.locator('.region-editor-canvas img')
+  await expect(regionImage).toBeVisible()
+  await expect.poll(() => regionImage.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+  await expect(page.locator('.region-editor-box')).toHaveCount(2)
+  await expect(page.locator('.region-list-item')).toHaveCount(2)
+  await expect(page.locator('.warning-card.warning-error')).toHaveCount(0)
+
+  const firstRegion = page.locator('.region-editor-box').first()
+  const bounds = await firstRegion.boundingBox()
+  expect(bounds).not.toBeNull()
+  const xInput = page.locator('.region-number-grid input').nth(0)
+  const xBefore = Number(await xInput.inputValue())
+  await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(bounds!.x + bounds!.width / 2 + 12, bounds!.y + bounds!.height / 2)
+  await page.mouse.up()
+  await expect.poll(async () => Number(await xInput.inputValue())).toBeGreaterThan(xBefore)
+
+  await page.locator('.region-action-grid button').nth(0).click()
+  await expect(page.locator('.region-editor-box')).toHaveCount(3)
+  await page.locator('.region-list-item').first().click()
+  await page.locator('.region-action-grid button').nth(2).click()
+  await expect(page.locator('.region-editor-box')).toHaveCount(2)
+
+  await page.locator('.grid-import-footer .button-primary').click()
+  await expect(page.getByTestId('grid-import-dialog')).toHaveCount(0)
+  await expect(page.locator('.frame-item')).toHaveCount(2)
+  await expect(page.locator('.action-item')).toHaveCount(1)
+  await page.waitForTimeout(900)
+  await page.reload()
+  await expect(page.locator('.frame-item')).toHaveCount(2)
+  await expect(page.locator('.action-item')).toHaveCount(1)
+})
+
 test('grid import slices aligned sheets and explains naming and size rules', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('open-grid-import').click()

@@ -119,15 +119,13 @@ export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanel
               </select>
             </label>
             <p className="field-help">
-              {bundle.mode === 'atlas'
-                ? '图集模式要求颜色与法线严格同布局，此处用于人工校正。'
-                : '逐帧模式按文件名自动配对，可在这里替换或清除。'}
+              {bundle.mode === 'atlas' ? '\u56fe\u96c6\u6a21\u5f0f\u8981\u6c42\u989c\u8272\u4e0e\u6cd5\u7ebf\u4e25\u683c\u540c\u5e03\u5c40\u3002' : bundle.mode === 'grid' ? '\u56fa\u5b9a\u7f51\u683c\u6a21\u5f0f\u4f7f\u7528\u7edf\u4e00\u5e27\u5c3a\u5bf8\u3002' : bundle.mode === 'regions' ? '\u4e0d\u89c4\u5219\u533a\u57df\u6a21\u5f0f\u4f7f\u7528\u4efb\u610f\u77e9\u5f62\u5e27\u3002' : '\u9010\u5e27\u6a21\u5f0f\u6309\u6587\u4ef6\u540d\u81ea\u52a8\u914d\u5bf9\u3002'}
             </p>
           </section>
           <section className="inspector-section key-value-list">
             <div>
               <span>输入模式</span>
-              <strong>{bundle.mode === 'atlas' ? 'JSON 图集' : '逐帧 PNG'}</strong>
+              <strong>{bundle.mode === 'atlas' ? 'JSON \u56fe\u96c6' : bundle.mode === 'grid' ? '\u56fa\u5b9a\u7f51\u683c' : bundle.mode === 'regions' ? '\u4e0d\u89c4\u5219\u533a\u57df' : '\u9010\u5e27 PNG'}</strong>
             </div>
             <div>
               <span>色板模式</span>

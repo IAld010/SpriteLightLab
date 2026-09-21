@@ -2878,3 +2878,213 @@
   font-size: 9px;
   line-height: 1.45;
 }
+
+
+.grid-import-mode-switch {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 3px;
+  border: 1px solid #2b384d;
+  border-radius: 8px;
+  background: #0a1019;
+}
+
+.grid-import-mode-switch button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  color: #74839a;
+  font-size: 9px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.grid-import-mode-switch button.is-active {
+  color: #e3ecfb;
+  background: #273b5c;
+}
+
+.region-import-workspace {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr) 285px;
+  min-width: 0;
+  min-height: 0;
+  border-top: 1px solid #202a3b;
+}
+
+.region-import-settings,
+.region-import-list {
+  min-height: 0;
+  overflow-y: auto;
+  background: #0b111a;
+}
+
+.region-import-settings {
+  padding: 14px;
+  border-right: 1px solid #222d3e;
+}
+
+.region-import-editor {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+  background: #080d14;
+}
+
+.region-import-list {
+  padding: 14px;
+  border-left: 1px solid #222d3e;
+}
+
+.region-editor-canvas {
+  position: relative;
+  align-self: start;
+  width: 100%;
+  margin: 0 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #263247;
+  border-radius: 10px;
+  background:
+    linear-gradient(45deg, #171e2a 25%, transparent 25%),
+    linear-gradient(-45deg, #171e2a 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #171e2a 75%),
+    linear-gradient(-45deg, transparent 75%, #171e2a 75%),
+    #0d121a;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+  touch-action: none;
+}
+
+.region-editor-canvas > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  user-select: none;
+  pointer-events: none;
+}
+
+.region-editor-box {
+  position: absolute;
+  border: 1px solid rgba(107, 152, 255, 0.85);
+  background: rgba(75, 128, 235, 0.12);
+  cursor: move;
+  touch-action: none;
+}
+
+.region-editor-box.is-selected {
+  border-color: #ffd166;
+  background: rgba(255, 209, 102, 0.13);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7);
+}
+
+.region-editor-number {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 8px;
+  background: rgba(8, 12, 18, 0.78);
+}
+
+.region-resize-handle {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border: 1px solid #111820;
+  border-radius: 2px;
+  background: #ffd166;
+}
+
+.handle-nw { top: -5px; left: -5px; cursor: nwse-resize; }
+.handle-ne { top: -5px; right: -5px; cursor: nesw-resize; }
+.handle-sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.handle-se { right: -5px; bottom: -5px; cursor: nwse-resize; }
+
+.region-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.region-number-grid {
+  margin-top: 10px;
+}
+
+.region-list-scroll {
+  display: grid;
+  gap: 6px;
+  max-height: min(56vh, 560px);
+  margin-top: 10px;
+  overflow-y: auto;
+}
+
+.region-list-item {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px;
+  border: 1px solid #253149;
+  border-radius: 7px;
+  color: #7e8ca2;
+  font-size: 8px;
+  text-align: left;
+  background: #0e151f;
+  cursor: pointer;
+}
+
+.region-list-item.is-active {
+  border-color: #6f8ed2;
+  color: #cbd9ef;
+  background: #17243a;
+}
+
+.region-list-item strong {
+  color: #d8e3f5;
+  font-size: 9px;
+}
+
+.region-rule-note {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #2a394f;
+  border-radius: 8px;
+  color: #75849b;
+  background: #0d141e;
+}
+
+.region-rule-note strong {
+  color: #c8d4e7;
+  font-size: 10px;
+}
+
+.region-rule-note p {
+  margin: 6px 0 0;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+@media (max-width: 1120px) {
+  .region-import-workspace {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .region-import-list {
+    grid-column: 1 / -1;
+    border-top: 1px solid #222d3e;
+    border-left: 0;
+  }
+}

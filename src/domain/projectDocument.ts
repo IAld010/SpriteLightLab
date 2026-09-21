@@ -7,6 +7,7 @@ import type {
   PalettePreset,
   ProjectDocument,
   ProjectDocumentV2,
+  RegionImportConfig,
   RenderPreferences,
 } from './types'
 
@@ -22,7 +23,7 @@ export function createProjectDocument(
   bundle: AssetBundle,
   state: ProjectStateSnapshot,
   settings: EditorSettings,
-  options: { gridConfig?: GridImportConfig } = {},
+  options: { gridConfig?: GridImportConfig; regionConfig?: RegionImportConfig } = {},
 ): ProjectDocumentV2 {
   return {
     version: 2,
@@ -56,6 +57,7 @@ export function createProjectDocument(
     renderPreferences: state.renderPreferences,
     settings,
     ...(bundle.gridConfig || options.gridConfig ? { gridConfig: bundle.gridConfig ?? options.gridConfig } : {}),
+    ...(bundle.regionConfig || options.regionConfig ? { regionConfig: bundle.regionConfig ?? options.regionConfig } : {}),
   }
 }
 
@@ -149,6 +151,7 @@ export function applyProjectDocumentToBundle(
   return {
     ...bundle,
     ...(document.version === 2 && document.gridConfig ? { gridConfig: document.gridConfig } : {}),
+    ...(document.version === 2 && document.regionConfig ? { regionConfig: document.regionConfig } : {}),
     frames,
     animations: animations.some((animation) => animation.frameIds.length > 0)
       ? animations
