@@ -2,6 +2,13 @@
 
 **简体中文** | [English](README_EN.md)
 
+> [!IMPORTANT]
+> **普通用户只需要下载 EXE，不需要下载源代码。**
+>
+> GitHub 页面中的 `Source code (zip)` 和 `Source code (tar.gz)` 仅供开发者查看或二次构建使用。
+>
+> **[直接下载 SpriteLightLab-v1.0.5-win-x64.exe](https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.5/SpriteLightLab-v1.0.5-win-x64.exe)**
+
 <p align="center">
   <img src="docs/images/app-icon.png" width="144" alt="Sprite Light Lab icon">
 </p>
