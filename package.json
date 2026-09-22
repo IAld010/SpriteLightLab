@@ -36,5 +36,5 @@
     "vite": "^8.3.0",
     "vitest": "^5.0.1"
   },
-  "description": "Local sprite integration, palette swap and normal-map lighting previewer"
+  "description": "A local tool for quickly previewing 2D sprite assets with palette swap and normal-map lighting"
 }

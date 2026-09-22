@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  A fully local 2D sprite assembly, palette swap, and normal-map lighting preview tool.
+  A local tool for quickly previewing 2D sprite assets with palette swap and normal-map lighting.
 </p>
 
 <p align="center">

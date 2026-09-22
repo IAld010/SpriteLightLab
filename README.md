@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  本地运行的 2D 精灵整合、Palette Swap 与法线光照预览工具。
+  本地运行的 2D 精灵资源快速预览工具，支持 Palette Swap 与法线光照效果调整。
 </p>
 
 <p align="center">
