@@ -41,6 +41,8 @@ test('stage 1 imports the demo, groups clips and supports frame interaction', as
 
   await chooseDemo(page, 0)
   await expect(page.locator('.action-panel')).toHaveCount(0)
+  await expect(page.locator('.workspace > .inspector-panel')).toHaveCount(1)
+  expect(await page.locator('.workspace > *').evaluateAll((elements) => elements.map((element) => element.className))).toEqual(['panel inspector-panel', 'center-workspace'])
   await expect(page.locator('.project-panel .action-item')).toHaveCount(2)
   await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
   await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
@@ -78,7 +80,7 @@ test('stage 1 imports the demo, groups clips and supports frame interaction', as
   })
 })
 
-test('bottom frame cells reorder and stay synchronized with the right frame navigator', async ({ page }) => {
+test('bottom frame cells reorder and stay synchronized with the frame navigator', async ({ page }) => {
   await page.goto('/')
   await chooseDemo(page, 0)
 
@@ -502,6 +504,8 @@ test('project library saves, switches, renames and removes projects', async ({ p
 
   await chooseDemo(page, 0)
   await expect(page.locator('.action-panel')).toHaveCount(0)
+  await expect(page.locator('.workspace > .inspector-panel')).toHaveCount(1)
+  expect(await page.locator('.workspace > *').evaluateAll((elements) => elements.map((element) => element.className))).toEqual(['panel inspector-panel', 'center-workspace'])
   await expect(page.locator('.project-panel .action-item')).toHaveCount(2)
   await page.waitForTimeout(900)
   await page.getByTestId('open-project-library').click()
@@ -654,6 +658,8 @@ test('specular strength changes the rendered lighting output', async ({ page }) 
   await page.goto('/')
   await chooseDemo(page, 0)
   await expect(page.locator('.action-panel')).toHaveCount(0)
+  await expect(page.locator('.workspace > .inspector-panel')).toHaveCount(1)
+  expect(await page.locator('.workspace > *').evaluateAll((elements) => elements.map((element) => element.className))).toEqual(['panel inspector-panel', 'center-workspace'])
   await expect(page.locator('.project-panel .action-item')).toHaveCount(2)
 
   await page.locator('.inspector-tabs-four button').nth(1).click()

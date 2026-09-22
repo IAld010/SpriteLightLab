@@ -403,14 +403,14 @@ export default function App() {
         <AnchorCalibrationPage />
       ) : (
         <main className="workspace">
-          <section className="center-workspace">
-            <PreviewStage onStatusChange={setRendererStatus} />
-            <Timeline />
-          </section>
           <InspectorPanel
             rendererStatus={rendererStatus}
             onOpenLibrary={() => setShowLibrary(true)}
           />
+          <section className="center-workspace">
+            <PreviewStage onStatusChange={setRendererStatus} />
+            <Timeline />
+          </section>
         </main>
       )}
 

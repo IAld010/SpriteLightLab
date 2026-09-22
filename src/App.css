@@ -205,7 +205,7 @@ img {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(560px, 1fr) 350px;
+  grid-template-columns: 350px minmax(560px, 1fr);
   min-height: 0;
 }
 
@@ -1184,7 +1184,7 @@ img {
 .inspector-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  border-left: 1px solid #1d2533;
+  border-right: 1px solid #1d2533;
 }
 
 .inspector-tabs {
@@ -1496,7 +1496,7 @@ img {
   }
 }
 .workspace {
-  grid-template-columns: minmax(560px, 1fr) 350px;
+  grid-template-columns: 350px minmax(560px, 1fr);
 }
 
 .inspector-tabs-four {
