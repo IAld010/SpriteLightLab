@@ -46,6 +46,7 @@ const EN_TRANSLATIONS: Record<string, string> = {
   '正在保存': 'Saving',
   '保存失败': 'Save failed',
   '显示细化': 'Show refinement',
+  '只查看源图': 'Source only',
   '洋葱皮': 'Onion skin',
   '像素网格': 'Pixel grid',
   '保存': 'Save',

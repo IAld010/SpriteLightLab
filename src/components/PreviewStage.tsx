@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { LightOverlay } from './LightOverlay'
 import type { PreviewBackground, PreviewTextureMode } from '../domain/types'
 import { PreviewRenderer } from '../renderer/PreviewRenderer'
@@ -58,9 +58,12 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
     : undefined
   const frameWidth = currentFrame?.source.rect?.width ?? sourceImage?.width ?? 1
   const frameHeight = currentFrame?.source.rect?.height ?? sourceImage?.height ?? 1
-  const frameAlignment = currentFrame
-    ? currentFrame.alignment ?? resolveFrameAlignment(frameWidth, frameHeight, 'bottom-center')
-    : undefined
+  const frameAlignment = useMemo(
+    () => currentFrame
+      ? currentFrame.alignment ?? resolveFrameAlignment(frameWidth, frameHeight, 'bottom-center')
+      : undefined,
+    [currentFrame, frameHeight, frameWidth],
+  )
   const actionAlignment = selectedAction?.alignment
 
   useEffect(() => {
@@ -142,8 +145,8 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
     }
     let cancelled = false
     renderer.setRefinementSource(
-      frameRefinement?.sourceVisible !== false,
-      frameRefinement?.sourceOpacity ?? 1,
+      showRefinement ? frameRefinement?.sourceVisible !== false : true,
+      showRefinement ? frameRefinement?.sourceOpacity ?? 1 : 1,
     )
     if (!showRefinement || !frameRefinement) {
       renderer.setRefinementOverlay(undefined)
@@ -155,7 +158,9 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
       frameWidth,
       frameHeight,
     ).then((overlay) => {
-      if (!cancelled) renderer.setRefinementOverlay(overlay)
+      if (!cancelled) {
+        renderer.setRefinementOverlay(overlay)
+      }
     })
     return () => {
       cancelled = true

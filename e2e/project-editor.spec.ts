@@ -8,6 +8,7 @@ async function chooseDemo(page: Page) {
 test('project editor copies the source layer, hides it and restores a cel after reload', async ({ page }) => {
   await page.goto('/')
   await chooseDemo(page)
+  const previewBefore = await page.locator('.preview-canvas-host canvas').screenshot()
   await page.getByTestId('open-project-editor').click()
 
   await expect(page.locator('.project-editor-root')).toBeVisible()
@@ -25,7 +26,9 @@ test('project editor copies the source layer, hides it and restores a cel after 
   await page.getByTestId('toggle-source-layer').click()
   await expect(page.getByTestId('toggle-source-layer')).toHaveText('○')
 
+  await page.locator('.color-editor-row input[type="color"]').fill('#ff00ff')
   const canvas = page.locator('.drawing-display-canvas')
+  const drawingBefore = await canvas.screenshot()
   const bounds = await canvas.boundingBox()
   expect(bounds).not.toBeNull()
   if (!bounds) return
@@ -35,9 +38,43 @@ test('project editor copies the source layer, hides it and restores a cel after 
   await page.mouse.down()
   await page.mouse.move(startX + 12, startY + 12, { steps: 4 })
   await page.mouse.up()
+  await page.mouse.move(5, 5)
+  const drawingAfter = await canvas.screenshot()
+  expect(drawingAfter.equals(drawingBefore)).toBe(false)
 
   await expect(page.locator('.compact-frame-cell').first().locator('.compact-frame-head .is-refined')).toHaveText('●')
+  await page.getByRole('button', { name: '保存' }).click()
+  await page.getByRole('button', { name: '保存' }).click()
   await expect(page.locator('.save-state')).toHaveText('已保存', { timeout: 10_000 })
+  const redPixelCount = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('sprite-light-lab', 4)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const assets = await new Promise<Array<{ blob: Blob }>>((resolve, reject) => {
+      const request = db.transaction('refinementAssets').objectStore('refinementAssets').getAll()
+      request.onsuccess = () => resolve(request.result as Array<{ blob: Blob }>)
+      request.onerror = () => reject(request.error)
+    })
+    let count = 0
+    for (const asset of assets) {
+      const bitmap = await createImageBitmap(asset.blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const context = canvas.getContext('2d')!
+      context.drawImage(bitmap, 0, 0)
+      const data = context.getImageData(0, 0, canvas.width, canvas.height).data
+      for (let index = 0; index < data.length; index += 4) {
+        if (data[index] > 220 && data[index + 1] < 40 && data[index + 2] > 220 && data[index + 3] > 0) count += 1
+      }
+      bitmap.close()
+    }
+    db.close()
+    return count
+  })
+  expect(redPixelCount).toBeGreaterThan(0)
 
   const secondFrame = page.locator('.compact-frame-cell').nth(1)
   await secondFrame.click()
@@ -47,7 +84,17 @@ test('project editor copies the source layer, hides it and restores a cel after 
 
   await page.getByRole('button', { name: '返回预览' }).click()
   await expect(page.locator('.preview-canvas-host')).toBeVisible()
-  await page.waitForTimeout(900)
+  await page.waitForTimeout(500)
+  const previewAfter = await page.locator('.preview-canvas-host canvas').screenshot()
+  expect(previewAfter.equals(previewBefore)).toBe(false)
+  const sourceOnly = page.getByTestId('source-only-preview')
+  await expect(sourceOnly).toBeVisible()
+  await sourceOnly.check()
+  await page.waitForTimeout(300)
+  const sourceOnlyPreview = await page.locator('.preview-canvas-host canvas').screenshot()
+  expect(sourceOnlyPreview.equals(previewBefore)).toBe(true)
+  await sourceOnly.uncheck()
+  await page.waitForTimeout(300)
   await page.reload()
   await page.getByTestId('open-project-editor').click()
   await expect(page.locator('.compact-frame-cell').first().locator('.compact-frame-head .is-refined')).toHaveText('●')

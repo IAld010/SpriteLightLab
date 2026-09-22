@@ -5679,3 +5679,19 @@ img {
   background: var(--editor-accent-soft);
   color: #ffd79e;
 }
+
+.source-only-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #c9ccd1;
+  white-space: nowrap;
+}
+
+.source-only-control input {
+  accent-color: #e0a24b;
+}
+
+.drawing-display-canvas.is-brush-cursor {
+  cursor: none;
+}

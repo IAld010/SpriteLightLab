@@ -214,6 +214,7 @@ export class PreviewRenderer implements PreviewExporter {
     this.layout()
     this.sprite.texture = this.updateOutputTexture(this.renderFrameCanvas())
     this.layout()
+    this.app.renderer.render(this.app.stage)
   }
 
   private updateView(): void {
@@ -248,7 +249,7 @@ export class PreviewRenderer implements PreviewExporter {
     )
     const width = Math.max(1, Math.round(this.currentFrameRect.width * scale))
     const height = Math.max(1, Math.round(this.currentFrameRect.height * scale))
-    return renderCpuSprite({
+    const canvas = renderCpuSprite({
       color: this.currentColor,
       normal: this.currentNormal,
       index: this.currentIndex,
@@ -290,6 +291,7 @@ export class PreviewRenderer implements PreviewExporter {
       sourceOpacity: this.refinementSourceOpacity,
       debugNormal: this.textureMode === 'normal',
     })
+    return canvas
   }
 
   private objectRect(): [number, number, number, number] {

@@ -6,6 +6,7 @@ import {
   drawRectanglePixels,
   floodFillPixels,
   hexToRgba,
+  resizePixel,
   type PixelPoint,
 } from '../domain/pixelToolkit'
 import { renderSourceFrameCanvas } from '../renderer/RefinementRenderer'
@@ -196,9 +197,11 @@ export function DrawingCanvas() {
     }
     if (cursor && (tool === 'pencil' || tool === 'eraser')) {
       context.save()
-      context.strokeStyle = '#ffffff'
-      context.lineWidth = 1 / viewScale
-      context.strokeRect(cursor.x - (brushSize - 1) / 2, cursor.y - (brushSize - 1) / 2, brushSize, brushSize)
+      context.globalCompositeOperation = 'difference'
+      context.fillStyle = 'rgba(255, 255, 255, 0.72)'
+      for (const pixel of resizePixel(cursor, brushSize)) {
+        context.fillRect(pixel.x, pixel.y, 1, 1)
+      }
       context.restore()
     }
   }, [activeLayerId, brushSize, cursor, pixelGrid, refinement, selection, tool, viewScale])
@@ -483,7 +486,7 @@ export function DrawingCanvas() {
             ref={displayCanvasRef}
             width={frameWidth}
             height={frameHeight}
-            className="drawing-display-canvas"
+            className={`drawing-display-canvas ${tool === 'pencil' || tool === 'eraser' ? 'is-brush-cursor' : ''}`}
             onPointerDown={beginPointer}
             onPointerMove={movePointer}
             onPointerUp={endPointer}

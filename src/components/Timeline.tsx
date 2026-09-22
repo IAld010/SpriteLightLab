@@ -65,6 +65,8 @@ export function Timeline() {
   const currentFrameIndex = useEditorStore((state) => state.currentFrameIndex)
   const isPlaying = useEditorStore((state) => state.isPlaying)
   const zoom = useEditorStore((state) => state.settings.zoom)
+  const showRefinement = useEditorStore((state) => state.settings.showRefinement !== false)
+  const setShowRefinement = useEditorStore((state) => state.setShowRefinement)
   const setPlaying = useEditorStore((state) => state.setPlaying)
   const stepFrame = useEditorStore((state) => state.stepFrame)
   const selectFrame = useEditorStore((state) => state.selectFrame)
@@ -210,6 +212,15 @@ export function Timeline() {
               onChange={(event) => setZoom(Number(event.target.value))}
             />
             <output>{Math.round(zoom * 100)}%</output>
+          </label>
+          <label className="source-only-control">
+            <input
+              type="checkbox"
+              checked={!showRefinement}
+              onChange={(event) => setShowRefinement(!event.target.checked)}
+              data-testid="source-only-preview"
+            />
+            <span>{t('只查看源图')}</span>
           </label>
         </div>
       </div>
