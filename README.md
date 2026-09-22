@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/IAld010/sprite-light-lab/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/IAld010/sprite-light-lab?display_name=tag"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/IAld010/sprite-light-lab"></a>
+  <a href="https://github.com/IAld010/SpriteLightLab/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/IAld010/SpriteLightLab?display_name=tag"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/IAld010/SpriteLightLab"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20x64-0078D4">
 </p>
 
@@ -21,7 +21,7 @@
 Windows 用户可以直接下载自包含单文件版本：
 
 <p align="center">
-  <a href="https://github.com/IAld010/sprite-light-lab/releases/download/v1.0.5/SpriteLightLab-v1.0.5-win-x64.exe"><strong>下载 SpriteLightLab v1.0.5</strong></a>
+  <a href="https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.5/SpriteLightLab-v1.0.5-win-x64.exe"><strong>下载 SpriteLightLab v1.0.5</strong></a>
 </p>
 
 - 平台：Windows 10 / 11 x64
@@ -116,7 +116,7 @@ http://127.0.0.1:5174
 - Windows 10 / 11
 
 ```powershell
-git clone https://github.com/IAld010/sprite-light-lab.git
+git clone https://github.com/IAld010/SpriteLightLab.git
 cd sprite-light-lab
 npm ci
 npm run dev

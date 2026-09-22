@@ -55,9 +55,9 @@ WebGPU 不可用时会自动使用 WebGL2。完整功能面向最新版 Edge / C
 
 ### 下载
 
-[下载 SpriteLightLab v1.0.5](https://github.com/IAld010/sprite-light-lab/releases/download/v1.0.5/SpriteLightLab-v1.0.5-win-x64.exe)
+[下载 SpriteLightLab v1.0.5](https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.5/SpriteLightLab-v1.0.5-win-x64.exe)
 
-也可以访问 [Releases 页面](https://github.com/IAld010/sprite-light-lab/releases) 选择其他版本。
+也可以访问 [Releases 页面](https://github.com/IAld010/SpriteLightLab/releases) 选择其他版本。
 
 ### 运行
 
