@@ -1,6 +1,7 @@
-﻿import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
+import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
 import { AnchorCalibrationOverlay } from './AnchorCalibrationOverlay'
 import { AnchorCalibrationPanel } from './AnchorCalibrationPanel'
+import { t } from '../i18n'
 
 export function AnchorCalibrationPage() {
   const action = useEditorStore((state) => getSelectedAction(state))
@@ -16,14 +17,14 @@ export function AnchorCalibrationPage() {
           className="button-ghost"
           onClick={() => setEnabled(false)}
         >
-          ← 返回主工作区
+          ← {t('返回主工作区')}
         </button>
         <div>
-          <strong>锚点校准</strong>
+          <strong>{t('锚点校准')}</strong>
           <span>
-            {action?.name ?? '动作'}
+            {action?.name ?? t('动作')}
             {' · '}
-            帧 {currentFrameIndex + 1}
+            {t('帧 {index}', { index: currentFrameIndex + 1 })}
             {currentFrame ? ` / ${currentFrame.name}` : ''}
           </span>
         </div>

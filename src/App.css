@@ -105,6 +105,16 @@ img {
   gap: 14px;
 }
 
+.language-switch {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.language-switch button {
+  min-width: 48px;
+  padding-inline: 8px;
+}
+
 .button {
   display: inline-flex;
   align-items: center;

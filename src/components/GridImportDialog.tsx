@@ -11,6 +11,7 @@ import { RegionImportWorkspace } from './RegionImportWorkspace'
 import { useEditorStore } from '../store/editorStore'
 import { ImportRulesPanel } from './ImportRulesPanel'
 import { useObjectUrl } from '../hooks/useObjectUrl'
+import { t } from '../i18n'
 
 interface GridImportDialogProps {
   onClose: () => void
@@ -85,14 +86,14 @@ function GridPreview({
     <div className={`grid-preview-card grid-preview-${tone}`}>
       <div className="grid-preview-heading">
         <strong>{label}</strong>
-        <span>{size ? `${size.width}×${size.height}` : '未选择'}</span>
+        <span>{size ? `${size.width}×${size.height}` : t('未选择')}</span>
       </div>
       <div
         className="grid-preview-canvas"
         style={size ? { aspectRatio: `${size.width} / ${size.height}` } : undefined}
       >
-        {url && <img src={url} alt={`${label}预览`} />}
-        {!url && <div className="grid-preview-empty">选择图片后显示切片预览</div>}
+        {url && <img src={url} alt={t('{label}预览', { label })} />}
+        {!url && <div className="grid-preview-empty">{t('选择图片后显示切片预览')}</div>}
         {url &&
           size &&
           rects.map((rect, index) => (
@@ -238,16 +239,16 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
       >
         <header className="grid-import-header">
           <div>
-            <div className="eyebrow">大图裁切</div>
-            <h1 id="grid-import-title">{cropMode === 'grid' ? '\u56fa\u5b9a\u7f51\u683c\u5207\u56fe' : '\u4e0d\u89c4\u5219\u533a\u57df\u5207\u56fe'}</h1>
-            <p>{cropMode === 'grid' ? '\u4f7f\u7528\u5e27\u5bbd\u3001\u5e27\u9ad8\u3001\u884c\u5217\u548c\u95f4\u8dd2\u9012\u884c\u89c4\u5219\u5207\u56fe\u3002' : '\u81ea\u52a8\u68c0\u6d4b\u900f\u660e\u5206\u9694\u7684\u533a\u57df\uff0c\u4e5f\u53ef\u4ee5\u624b\u52a8\u62d6\u52a8\u3001\u7f29\u653e\u3001\u65b0\u589e\u548c\u5408\u5e76\u77e9\u5f62\u3002'}</p>
+            <div className="eyebrow">{t('大图裁切')}</div>
+            <h1 id="grid-import-title">{cropMode === 'grid' ? t('固定网格切图') : t('不规则区域切图')}</h1>
+            <p>{cropMode === 'grid' ? t('使用帧宽、帧高、行列和间距运行规则切图。') : t('自动检测透明分隔的区域，也可以手动拖动、缩放、新增和合并矩形。')}</p>
             <div className="grid-import-mode-switch">
-              <button type="button" className={cropMode === 'grid' ? 'is-active' : ''} onClick={() => setCropMode('grid')}>{'\u56fa\u5b9a\u7f51\u683c'}</button>
-              <button type="button" className={cropMode === 'regions' ? 'is-active' : ''} onClick={() => setCropMode('regions')}>{'\u4e0d\u89c4\u5219\u533a\u57df'}</button>
+              <button type="button" className={cropMode === 'grid' ? 'is-active' : ''} onClick={() => setCropMode('grid')}>{t('固定网格')}</button>
+              <button type="button" className={cropMode === 'regions' ? 'is-active' : ''} onClick={() => setCropMode('regions')}>{t('不规则区域')}</button>
             </div>
           </div>
           <button ref={closeButtonRef} type="button" className="button" onClick={onClose} disabled={busy}>
-            关闭
+            {t('关闭')}
           </button>
         </header>
 
@@ -277,29 +278,29 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
             <>
           <aside className="grid-import-settings">
             <section className="inspector-section">
-              <strong>选择图片</strong>
+              <strong>{t('选择图片')}</strong>
               <div className="grid-file-row">
                 <div>
-                  <span>颜色大图</span>
-                  <small>{colorSize ? `${colorSize.width}×${colorSize.height}` : '必选'}</small>
+                  <span>{t('颜色大图')}</span>
+                  <small>{colorSize ? `${colorSize.width}×${colorSize.height}` : t('必选')}</small>
                 </div>
                 <button type="button" className="button" onClick={() => colorInputRef.current?.click()}>
-                  选择
+                  {t('选择')}
                 </button>
               </div>
               <div className="grid-file-row">
                 <div>
-                  <span>法线大图</span>
+                  <span>{t('法线大图')}</span>
                   <small>
                     {normalSize
                       ? `${normalSize.width}×${normalSize.height}`
                       : normalFile
-                        ? '读取中'
-                        : '可选，缺失时使用平坦法线'}
+                        ? t('读取中')
+                        : t('可选，缺失时使用平坦法线')}
                   </small>
                 </div>
                 <button type="button" className="button" onClick={() => normalInputRef.current?.click()}>
-                  选择
+                  {t('选择')}
                 </button>
                 {normalFile && (
                   <button
@@ -310,7 +311,7 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
                       setNormalSize(undefined)
                     }}
                   >
-                    清除
+                    {t('清除')}
                   </button>
                 )}
               </div>
@@ -319,38 +320,38 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
 
             <section className="inspector-section">
               <div className="section-title-row">
-                <strong>网格参数</strong>
+                <strong>{t('网格参数')}</strong>
                 <button type="button" className="mini-button" onClick={divideEvenly} disabled={!colorSize}>
-                  按行列均分
+                  {t('按行列均分')}
                 </button>
               </div>
               <div className="grid-number-grid">
-                <NumberField label="帧宽" value={config.frameWidth} min={1} onChange={(frameWidth) => updateConfig({ frameWidth })} />
-                <NumberField label="帧高" value={config.frameHeight} min={1} onChange={(frameHeight) => updateConfig({ frameHeight })} />
-                <NumberField label="列数" value={config.columns} min={1} onChange={(columns) => updateConfig({ columns })} />
-                <NumberField label="行数" value={config.rows} min={1} onChange={(rows) => updateConfig({ rows })} />
-                <NumberField label="左边距" value={config.offsetX} onChange={(offsetX) => updateConfig({ offsetX })} />
-                <NumberField label="上边距" value={config.offsetY} onChange={(offsetY) => updateConfig({ offsetY })} />
-                <NumberField label="水平间距" value={config.spacingX} onChange={(spacingX) => updateConfig({ spacingX })} />
-                <NumberField label="垂直间距" value={config.spacingY} onChange={(spacingY) => updateConfig({ spacingY })} />
+                <NumberField label={t('帧宽')} value={config.frameWidth} min={1} onChange={(frameWidth) => updateConfig({ frameWidth })} />
+                <NumberField label={t('帧高')} value={config.frameHeight} min={1} onChange={(frameHeight) => updateConfig({ frameHeight })} />
+                <NumberField label={t('列数')} value={config.columns} min={1} onChange={(columns) => updateConfig({ columns })} />
+                <NumberField label={t('行数')} value={config.rows} min={1} onChange={(rows) => updateConfig({ rows })} />
+                <NumberField label={t('左边距')} value={config.offsetX} onChange={(offsetX) => updateConfig({ offsetX })} />
+                <NumberField label={t('上边距')} value={config.offsetY} onChange={(offsetY) => updateConfig({ offsetY })} />
+                <NumberField label={t('水平间距')} value={config.spacingX} onChange={(spacingX) => updateConfig({ spacingX })} />
+                <NumberField label={t('垂直间距')} value={config.spacingY} onChange={(spacingY) => updateConfig({ spacingY })} />
               </div>
               <label className="field">
-                <span>排列顺序</span>
+                <span>{t('排列顺序')}</span>
                 <select
                   value={config.frameOrder}
                   onChange={(event) =>
                     updateConfig({ frameOrder: event.target.value as GridImportConfig['frameOrder'] })
                   }
                 >
-                  <option value="row-major">从左到右，再换下一行</option>
-                  <option value="column-major">从上到下，再换下一列</option>
+                  <option value="row-major">{t('从左到右，再换下一行')}</option>
+                  <option value="column-major">{t('从上到下，再换下一列')}</option>
                 </select>
               </label>
             </section>
 
             {fileError && (
               <div className="project-library-error" role="alert">
-                {fileError}
+                {t(fileError)}
               </div>
             )}
             {warnings.map((warning, index) => (
@@ -359,29 +360,29 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
                 key={`${warning.code}:${index}`}
                 role="alert"
               >
-                <strong>{warning.severity === 'error' ? '阻止导入' : '注意'}</strong>
-                <span>{warning.message}</span>
+                <strong>{warning.severity === 'error' ? t('阻止导入') : t('注意')}</strong>
+                <span>{t(warning.message)}</span>
               </div>
             ))}
           </aside>
 
           <section className="grid-import-preview">
             <div className="grid-preview-pair">
-              <GridPreview label="颜色图" file={colorFile} size={colorSize} rects={rects} tone="color" />
-              <GridPreview label="法线图" file={normalFile} size={normalSize} rects={normalFile ? rects : []} tone="normal" />
+              <GridPreview label={t('颜色图')} file={colorFile} size={colorSize} rects={rects} tone="color" />
+              <GridPreview label={t('法线图')} file={normalFile} size={normalSize} rects={normalFile ? rects : []} tone="normal" />
             </div>
             <div className="grid-summary-card">
               <div>
-                <span>预计帧数</span>
+                <span>{t('预计帧数')}</span>
                 <strong>{rects.length}</strong>
               </div>
               <div>
-                <span>动作数</span>
+                <span>{t('动作数')}</span>
                 <strong>{rects.length > 0 ? 1 : 0}</strong>
               </div>
               <div>
-                <span>法线状态</span>
-                <strong>{normalFile ? (errors.length > 0 ? '尺寸错误' : '已配对') : '平坦法线'}</strong>
+                <span>{t('法线状态')}</span>
+                <strong>{normalFile ? (errors.length > 0 ? t('尺寸错误') : t('已配对')) : t('平坦法线')}</strong>
               </div>
             </div>
           </section>
@@ -402,10 +403,10 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
         </div>
 
         <footer className="grid-import-footer">
-          <span>{errors.length > 0 ? '请修正错误后再确认导入。' : '确认后会创建为一个新的本地项目。'}</span>
+          <span>{errors.length > 0 ? t('请修正错误后再确认导入。') : t('确认后会创建为一个新的本地项目。')}</span>
           <div>
             <button type="button" className="button" onClick={onClose} disabled={busy}>
-              取消
+              {t('取消')}
             </button>
             <button
               type="button"
@@ -413,7 +414,11 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
               disabled={!colorFile || errors.length > 0 || busy}
               onClick={() => void confirmImport()}
             >
-              {busy ? '正在导入…' : `确认导入 ${rects.length > 0 ? `${rects.length} 帧` : ''}`}
+              {busy
+                ? t('正在导入…')
+                : t('确认导入 {count}', {
+                    count: rects.length > 0 ? t('{count} 帧', { count: rects.length }) : '',
+                  })}
             </button>
           </div>
         </footer>

@@ -3,6 +3,7 @@ import { normalizeHex, parsePaletteFile, serializeGpl, serializeHexPalette } fro
 import { useEditorStore } from '../store/editorStore'
 import { activePaletteFromState, useProjectStore } from '../store/projectStore'
 import { downloadText } from '../utils/download'
+import { t } from '../i18n'
 
 export function PalettePanel() {
   const importInput = useRef<HTMLInputElement>(null)
@@ -49,7 +50,7 @@ export function PalettePanel() {
   }, [focusedPaletteId, paletteMenuOpen])
 
   if (!bundle || !palette) {
-    return <div className="empty-list">导入素材后启用 Palette Swap。</div>
+    return <div className="empty-list">{t('导入素材后启用 Palette Swap。')}</div>
   }
 
   const exportColors = palette.entries.map((entry) => entry.target)
@@ -78,13 +79,13 @@ export function PalettePanel() {
           <div>
             <div className="eyebrow">Palette Swap</div>
             <strong className="panel-title">
-              {bundle.paletteMode === 'indexed' ? '索引色精确换色' : '全彩替换与调色'}
+              {bundle.paletteMode === 'indexed' ? t('索引色精确换色') : t('全彩替换与调色')}
             </strong>
           </div>
           <span className={`mode-badge mode-${bundle.paletteMode}`}>
             {bundle.paletteMode === 'indexed'
-              ? `${bundle.paletteSources.length} 色`
-              : '全彩'}
+              ? t('{count} 色', { count: bundle.paletteSources.length })
+              : t('全彩')}
           </span>
         </div>
         <div className="palette-toolbar">
@@ -93,7 +94,7 @@ export function PalettePanel() {
               ref={paletteTriggerRef}
               type="button"
               className={`palette-picker-trigger ${paletteMenuOpen ? 'is-open' : ''}`}
-              aria-label={`当前色板：${palette.name}`}
+              aria-label={t('当前色板：{name}', { name: palette.name })}
               aria-haspopup="listbox"
               aria-expanded={paletteMenuOpen}
               aria-controls="palette-picker-listbox"
@@ -120,7 +121,7 @@ export function PalettePanel() {
                 id="palette-picker-listbox"
                 className="palette-picker-menu"
                 role="listbox"
-                aria-label="色板列表"
+                aria-label={t('色板列表')}
                 data-testid="palette-picker-menu"
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -162,7 +163,7 @@ export function PalettePanel() {
                       onClick={() => choosePalette(preset.id)}
                     >
                       <span className="palette-picker-option-name">{preset.name}</span>
-                      {selected && <span className="palette-picker-option-state">当前</span>}
+                      {selected && <span className="palette-picker-option-state">{t('当前')}</span>}
                     </button>
                   )
                 })}
@@ -177,7 +178,7 @@ export function PalettePanel() {
             className="mini-button"
             onClick={() => duplicatePalette(palette.id)}
           >
-            复制
+            {t('复制')}
           </button>
           <button
             type="button"
@@ -185,24 +186,24 @@ export function PalettePanel() {
             disabled={palettePresets.length <= 1}
             onClick={() => deletePalette(palette.id)}
           >
-            删除
+            {t('删除')}
           </button>
         </div>
         <input
           className="palette-name-input"
           value={palette.name}
           onChange={(event) => renamePalette(palette.id, event.target.value)}
-          aria-label="色板名称"
+          aria-label={t('色板名称')}
         />
         <div className="history-row">
           <button type="button" className="mini-button" disabled={pastLength === 0} onClick={undo}>
-            撤销
+            {t('撤销')}
           </button>
           <button type="button" className="mini-button" disabled={futureLength === 0} onClick={redo}>
-            重做
+            {t('重做')}
           </button>
           <button type="button" className="mini-button" onClick={resetPaletteEntries}>
-            重置
+            {t('重置')}
           </button>
         </div>
       </section>
@@ -210,8 +211,8 @@ export function PalettePanel() {
       {bundle.paletteMode === 'indexed' ? (
         <section className="inspector-section">
           <div className="section-title-row">
-            <strong>源色 → 目标色</strong>
-            <span>{palette.entries.length} 项</span>
+            <strong>{t('源色 → 目标色')}</strong>
+            <span>{t('{count} 项', { count: palette.entries.length })}</span>
           </div>
           <div className="swatch-list">
             {palette.entries.map((entry) => (
@@ -225,7 +226,7 @@ export function PalettePanel() {
                 <input
                   type="color"
                   value={entry.target}
-                  aria-label={`${entry.source} 目标色`}
+                  aria-label={t('{color} 目标色', { color: entry.source })}
                   onChange={(event) =>
                     updatePaletteEntry(entry.source, normalizeHex(event.target.value))
                   }
@@ -238,34 +239,34 @@ export function PalettePanel() {
       ) : (
         <section className="inspector-section">
           <div className="section-title-row">
-            <strong>拾色替换规则</strong>
+            <strong>{t('拾色替换规则')}</strong>
             <button type="button" className="mini-button" onClick={addColorRule}>
-              + 新规则
+              + {t('新规则')}
             </button>
           </div>
           <div className="rule-list">
             {palette.rules.length === 0 && (
-              <div className="empty-inline">添加规则后可按颜色与容差替换渐变或抗锯齿像素。</div>
+              <div className="empty-inline">{t('添加规则后可按颜色与容差替换渐变或抗锯齿像素。')}</div>
             )}
             {palette.rules.map((rule) => (
               <div className="color-rule" key={rule.id}>
                 <input
                   type="checkbox"
                   checked={rule.enabled}
-                  aria-label="启用规则"
+                  aria-label={t('启用规则')}
                   onChange={(event) => updateColorRule(rule.id, { enabled: event.target.checked })}
                 />
                 <input
                   type="color"
                   value={rule.source}
-                  aria-label="规则源色"
+                  aria-label={t('规则源色')}
                   onChange={(event) => updateColorRule(rule.id, { source: event.target.value })}
                 />
                 <span>→</span>
                 <input
                   type="color"
                   value={rule.target}
-                  aria-label="规则目标色"
+                  aria-label={t('规则目标色')}
                   onChange={(event) => updateColorRule(rule.id, { target: event.target.value })}
                 />
                 <input
@@ -274,7 +275,7 @@ export function PalettePanel() {
                   max="0.5"
                   step="0.01"
                   value={rule.tolerance}
-                  aria-label="颜色容差"
+                  aria-label={t('颜色容差')}
                   onChange={(event) =>
                     updateColorRule(rule.id, { tolerance: Number(event.target.value) })
                   }
@@ -283,7 +284,7 @@ export function PalettePanel() {
                   type="button"
                   className="icon-button danger"
                   onClick={() => removeColorRule(rule.id)}
-                  aria-label="删除颜色规则"
+                  aria-label={t('删除颜色规则')}
                 >
                   ×
                 </button>
@@ -294,10 +295,10 @@ export function PalettePanel() {
       )}
 
       <section className="inspector-section">
-        <strong>全局调色</strong>
+        <strong>{t('全局调色')}</strong>
         <div className="range-grid">
           <RangeField
-            label="色相"
+            label={t('色相')}
             min={-0.5}
             max={0.5}
             step={0.01}
@@ -305,7 +306,7 @@ export function PalettePanel() {
             onChange={(value) => updateAdjustments({ hue: value * 360 })}
           />
           <RangeField
-            label="饱和度"
+            label={t('饱和度')}
             min={0}
             max={2}
             step={0.01}
@@ -313,7 +314,7 @@ export function PalettePanel() {
             onChange={(saturation) => updateAdjustments({ saturation })}
           />
           <RangeField
-            label="亮度"
+            label={t('亮度')}
             min={-0.5}
             max={0.5}
             step={0.01}
@@ -321,7 +322,7 @@ export function PalettePanel() {
             onChange={(lightness) => updateAdjustments({ lightness })}
           />
           <RangeField
-            label="对比度"
+            label={t('对比度')}
             min={0}
             max={2}
             step={0.01}
@@ -333,10 +334,10 @@ export function PalettePanel() {
           <input
             type="color"
             value={palette.adjustments.tint}
-            aria-label="染色"
+            aria-label={t('染色')}
             onChange={(event) => updateAdjustments({ tint: event.target.value })}
           />
-          <span>整体染色</span>
+          <span>{t('整体染色')}</span>
           <input
             type="range"
             min="0"
@@ -352,9 +353,9 @@ export function PalettePanel() {
 
       <section className="inspector-section">
         <div className="section-title-row">
-          <strong>色板交换</strong>
+          <strong>{t('色板交换')}</strong>
           <button type="button" className="mini-button" onClick={() => importInput.current?.click()}>
-            导入
+            {t('导入')}
           </button>
         </div>
         <input
@@ -377,7 +378,7 @@ export function PalettePanel() {
             disabled={exportColors.length === 0}
             onClick={() => downloadText(serializeGpl(exportColors, palette.name), `${palette.name}.gpl`)}
           >
-            导出 GPL
+            {t('导出 GPL')}
           </button>
           <button
             type="button"
@@ -387,7 +388,7 @@ export function PalettePanel() {
               downloadText(serializeHexPalette(exportColors), `${palette.name}.hex`)
             }
           >
-            导出 HEX
+            {t('导出 HEX')}
           </button>
         </div>
       </section>

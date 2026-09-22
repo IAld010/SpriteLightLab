@@ -25,6 +25,7 @@ import { getSelectedAction, useEditorStore } from './store/editorStore'
 import { useProjectLibraryStore } from './store/projectLibraryStore'
 import { isExternalFileDrag } from './utils/dragAndDrop'
 import { useProjectStore } from './store/projectStore'
+import { useI18n } from './i18n'
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -39,6 +40,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 export default function App() {
+  const { language, t } = useI18n()
   const [isDragging, setIsDragging] = useState(false)
   const [rendererStatus, setRendererStatus] = useState('未连接')
   const [showLibrary, setShowLibrary] = useState(true)
@@ -127,6 +129,10 @@ export default function App() {
     saveQueue.current = saveQueue.current.catch(() => undefined).then(persistCurrentProject)
     await saveQueue.current
   }, [persistCurrentProject])
+
+  useEffect(() => {
+    document.documentElement.lang = language
+  }, [language])
 
   useEffect(() => {
     let cancelled = false
@@ -420,8 +426,8 @@ export default function App() {
         <div className={`drop-overlay ${isDragging ? 'is-dragging' : ''}`}>
           <div className="drop-card">
             <div className="drop-icon">{isImporting || isPreparingImport ? '…' : '↓'}</div>
-            <strong>{isImporting || isPreparingImport ? '正在读取素材并自动配对' : '释放以导入素材'}</strong>
-            <span>{isImporting || isPreparingImport ? '本地解析中，不会上传文件。' : 'PNG、JSON 与法线图可同时拖入。'}</span>
+            <strong>{isImporting || isPreparingImport ? t('正在读取素材并自动配对') : t('释放以导入素材')}</strong>
+            <span>{isImporting || isPreparingImport ? t('本地解析中，不会上传文件。') : t('PNG、JSON 与法线图可同时拖入。')}</span>
           </div>
         </div>
       )}
@@ -432,13 +438,16 @@ export default function App() {
           className={`notice notice-${notice.tone}`}
           onClick={dismissNotice}
         >
-          <span>{notice.message}</span>
-          {notice.tone === 'error' && <small>点击关闭</small>}
+          <span>{t(notice.message)}</span>
+          {notice.tone === 'error' && <small>{t('点击关闭')}</small>}
         </button>
       )}
 
       <div className="sr-status" aria-live="polite">
-        {bundle ? `已载入 ${bundle.frames.length} 帧` : '尚未载入素材'}，渲染后端 {rendererStatus}
+        {bundle
+          ? t('已载入 {count} 帧', { count: bundle.frames.length })
+          : t('尚未载入素材')}
+        {' · '}{t('渲染后端')} {t(rendererStatus)}
       </div>
     </div>
   )

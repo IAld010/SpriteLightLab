@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ProjectSummary } from '../services/projectPersistence'
+import { useI18n } from '../i18n'
 
 interface ProjectLibraryPageProps {
   projects: ProjectSummary[]
@@ -12,12 +13,12 @@ interface ProjectLibraryPageProps {
   onClose: () => void
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string, locale: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
     return '未知时间'
   }
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -35,6 +36,7 @@ export function ProjectLibraryPage({
   onRenameProject,
   onClose,
 }: ProjectLibraryPageProps) {
+  const { language, t } = useI18n()
   const [removeTarget, setRemoveTarget] = useState<ProjectSummary>()
   const [renameTarget, setRenameTarget] = useState<ProjectSummary>()
   const [renameValue, setRenameValue] = useState('')
@@ -67,29 +69,29 @@ export function ProjectLibraryPage({
     <main className="project-library" data-testid="project-library">
       <div className="project-library-header">
         <div>
-          <div className="eyebrow">本地项目库</div>
-          <h1>精灵项目</h1>
-          <p>项目素材只保存在当前浏览器中，移除项目不会删除磁盘原文件。</p>
+          <div className="eyebrow">{t('本地项目库')}</div>
+          <h1>{t('精灵项目')}</h1>
+          <p>{t('项目素材只保存在当前浏览器中，移除项目不会删除磁盘原文件。')}</p>
         </div>
         <button type="button" className="button" onClick={onClose} disabled={!activeProjectId}>
-          返回编辑器
+          {t('返回编辑器')}
         </button>
       </div>
 
       {error && (
         <div className="project-library-error" role="alert">
-          {error}
+          {t(error)}
         </div>
       )}
 
       {projects.length === 0 ? (
         <section className="project-library-empty">
           <div className="placeholder-mark">SL</div>
-          <h2>还没有保存的项目</h2>
-          <p>从上方导入逐帧 PNG、图集项目或项目包；导入完成后会自动出现在这里。</p>
+          <h2>{t('还没有保存的项目')}</h2>
+          <p>{t('从上方导入逐帧 PNG、图集项目或项目包；导入完成后会自动出现在这里。')}</p>
         </section>
       ) : (
-        <section className="project-card-grid" aria-label="项目列表">
+        <section className="project-card-grid" aria-label={t('项目列表')}>
           {projects.map((project) => {
             const isActive = project.id === activeProjectId
             return (
@@ -104,25 +106,25 @@ export function ProjectLibraryPage({
                   </div>
                   <div>
                     <h2>{project.name}</h2>
-                    <span>{project.sourceName || '本地素材'}</span>
+                    <span>{project.sourceName || t('本地素材')}</span>
                   </div>
-                  {isActive && <span className="project-active-badge">当前</span>}
+                  {isActive && <span className="project-active-badge">{t('当前')}</span>}
                 </div>
 
                 <div className="project-card-stats">
                   <span>
-                    <strong>{project.frameCount}</strong> 帧
+                    <strong>{project.frameCount}</strong> {t('帧')}
                   </span>
                   <span>
-                    <strong>{project.animationCount}</strong> 动作
+                    <strong>{project.animationCount}</strong> {t('动作')}
                   </span>
                   <span>
-                    <strong>{project.warningCount}</strong> 缺失法线
+                    <strong>{project.warningCount}</strong> {t('缺失法线')}
                   </span>
                 </div>
 
                 <div className="project-card-footer">
-                  <span>更新于 {formatDate(project.updatedAt)}</span>
+                  <span>{t('更新于')} {t(formatDate(project.updatedAt, language === 'en' ? 'en-US' : 'zh-CN'))}</span>
                   <div className="project-card-actions">
                     <button
                       type="button"
@@ -133,7 +135,7 @@ export function ProjectLibraryPage({
                         setRenameValue(project.name)
                       }}
                     >
-                      重命名
+                      {t('重命名')}
                     </button>
                     <button
                       type="button"
@@ -141,7 +143,7 @@ export function ProjectLibraryPage({
                       disabled={busy}
                       onClick={() => setRemoveTarget(project)}
                     >
-                      移除
+                      {t('移除')}
                     </button>
                     <button
                       type="button"
@@ -149,7 +151,7 @@ export function ProjectLibraryPage({
                       disabled={busy}
                       onClick={() => onOpenProject(project.id)}
                     >
-                      {isActive ? '打开编辑器' : '打开项目'}
+                      {isActive ? t('打开编辑器') : t('打开项目')}
                     </button>
                   </div>
                 </div>
@@ -172,9 +174,9 @@ export function ProjectLibraryPage({
             }}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <h2 id="rename-project-title">重命名项目</h2>
+            <h2 id="rename-project-title">{t('重命名项目')}</h2>
             <label className="field">
-              <span>项目名称</span>
+              <span>{t('项目名称')}</span>
               <input
                 ref={renameInputRef}
                 value={renameValue}
@@ -183,10 +185,10 @@ export function ProjectLibraryPage({
             </label>
             <div className="dialog-actions">
               <button type="button" className="button" onClick={cancelRename}>
-                取消
+                {t('取消')}
               </button>
               <button type="submit" className="button button-primary" disabled={!renameValue.trim()}>
-                保存名称
+                {t('保存名称')}
               </button>
             </div>
           </form>
@@ -202,14 +204,14 @@ export function ProjectLibraryPage({
             aria-labelledby="remove-project-title"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="eyebrow danger-text">不可撤销</div>
-            <h2 id="remove-project-title">移除“{removeTarget.name}”？</h2>
+            <div className="eyebrow danger-text">{t('不可撤销')}</div>
+            <h2 id="remove-project-title">{t('移除“{name}”？', { name: removeTarget.name })}</h2>
             <p>
-              这会删除浏览器中保存的项目数据，但不会删除你电脑上的原始 PNG、JSON 或 ZIP 文件。
+              {t('这会删除浏览器中保存的项目数据，但不会删除你电脑上的原始 PNG、JSON 或 ZIP 文件。')}
             </p>
             <div className="dialog-actions">
               <button type="button" className="button" onClick={() => setRemoveTarget(undefined)}>
-                取消
+                {t('取消')}
               </button>
               <button
                 type="button"
@@ -220,7 +222,7 @@ export function ProjectLibraryPage({
                   setRemoveTarget(undefined)
                 }}
               >
-                确认移除
+                {t('确认移除')}
               </button>
             </div>
           </div>

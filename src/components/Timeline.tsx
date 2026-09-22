@@ -5,6 +5,7 @@ import type { AssetBundle, PreviewFrame } from '../domain/types'
 import { useObjectUrl } from '../hooks/useObjectUrl'
 import { markInternalDrag } from '../utils/dragAndDrop'
 import { getSelectedAction, useEditorStore } from '../store/editorStore'
+import { t } from '../i18n'
 
 const THUMBNAIL_WIDTH = 48
 const THUMBNAIL_HEIGHT = 36
@@ -19,9 +20,9 @@ function formatDuration(durationMs: number): string {
 
 function pairDescription(frame: PreviewFrame): string {
   if (frame.normal) {
-    return frame.pairingStatus === 'manual' ? '手工配对法线图' : '已配对法线图'
+    return frame.pairingStatus === 'manual' ? t('手工配对法线图') : t('已配对法线图')
   }
-  return frame.pairingStatus === 'mismatch' ? '图集布局不匹配' : '缺少法线图'
+  return frame.pairingStatus === 'mismatch' ? t('图集布局不匹配') : t('缺少法线图')
 }
 
 function FrameThumbnail({ frame, bundle }: { frame: PreviewFrame; bundle: AssetBundle }) {
@@ -113,7 +114,7 @@ export function Timeline() {
   if (!bundle || !action || !schedule) {
     return (
       <footer className="timeline timeline-empty">
-        <span>播放控制与帧时间线将在导入素材后启用。</span>
+        <span>{t('播放控制与帧时间线将在导入素材后启用。')}</span>
       </footer>
     )
   }
@@ -130,7 +131,7 @@ export function Timeline() {
             type="button"
             className="transport-button"
             onClick={() => stepFrame(-1)}
-            aria-label="上一帧"
+            aria-label={t('上一帧')}
           >
             │◀
           </button>
@@ -138,7 +139,7 @@ export function Timeline() {
             type="button"
             className={`transport-button play-button ${isPlaying ? 'is-active' : ''}`}
             onClick={() => setPlaying(!isPlaying)}
-            aria-label={isPlaying ? '暂停' : '播放'}
+            aria-label={isPlaying ? t('暂停') : t('播放')}
           >
             {isPlaying ? 'Ⅱ' : '▶'}
           </button>
@@ -146,7 +147,7 @@ export function Timeline() {
             type="button"
             className="transport-button"
             onClick={() => stepFrame(1)}
-            aria-label="下一帧"
+            aria-label={t('下一帧')}
           >
             ▶│
           </button>
@@ -154,7 +155,7 @@ export function Timeline() {
             type="button"
             className="transport-button"
             onClick={resetView}
-            aria-label="居中显示"
+            aria-label={t('居中显示')}
           >
             ⌖
           </button>
@@ -162,7 +163,7 @@ export function Timeline() {
             type="button"
             className={`transport-button loop-button ${action.loop ? 'is-active' : ''}`}
             onClick={toggleLoop}
-            aria-label="循环播放"
+            aria-label={t('循环播放')}
           >
             ↻
           </button>
@@ -170,10 +171,10 @@ export function Timeline() {
 
         <div className="timeline-summary">
           <strong title={action.name}>{action.name}</strong>
-          <span>{frames.length} 帧</span>
+          <span>{t('{count} 帧', { count: frames.length })}</span>
           <span>{formatDuration(schedule.totalDurationMs)}</span>
           <span>{Math.min(frames.length, currentFrameIndex + 1)} / {frames.length}</span>
-          <small>拖动帧格可调整顺序</small>
+          <small>{t('拖动帧格可调整顺序')}</small>
         </div>
 
         <div className="timeline-settings">
@@ -186,10 +187,10 @@ export function Timeline() {
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M3 18 C7 18 7 6 12 6 S17 18 21 18" />
             </svg>
-            速度曲线
+            {t('速度曲线')}
           </button>
           <label className="compact-control">
-            <span>帧率</span>
+            <span>{t('帧率')}</span>
             <input
               type="number"
               min="1"
@@ -199,7 +200,7 @@ export function Timeline() {
             />
           </label>
           <label className="zoom-control">
-            <span>缩放</span>
+            <span>{t('缩放')}</span>
             <input
               type="range"
               min="0.25"
@@ -215,10 +216,10 @@ export function Timeline() {
 
       <div className="timeline-track-shell">
         <div className="timeline-track-label">
-          <strong>帧</strong>
-          <span>固定格</span>
+          <strong>{t('帧')}</strong>
+          <span>{t('固定格')}</span>
         </div>
-        <div className="frame-track" role="list" aria-label="帧时间线">
+        <div className="frame-track" role="list" aria-label={t('帧时间线')}>
           {frames.map((frame, index) => {
             const active = index === currentFrameIndex
             const timing = scheduleByFrameId.get(frame.id)
@@ -230,7 +231,7 @@ export function Timeline() {
                 key={frame.id}
                 draggable
                 aria-current={active ? 'true' : undefined}
-                aria-label={`第 ${index + 1} 帧：${frame.name}`}
+                aria-label={t('第 {index} 帧：{name}', { index: index + 1, name: frame.name })}
                 className={`timeline-frame-cell ${active ? 'is-active' : ''} ${
                   dropIndex === index && draggedIndex !== index ? 'is-drop-target' : ''
                 }`}

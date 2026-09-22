@@ -7,6 +7,7 @@ import {
 import type { AssetBundle, PreviewFrame, RuntimeImage, TextureRef } from '../domain/types'
 import { markInternalDrag } from '../utils/dragAndDrop'
 import { ImportRulesPanel } from './ImportRulesPanel'
+import { t } from '../i18n'
 
 interface ManualMatchPageProps {
   bundle: AssetBundle
@@ -243,12 +244,12 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
     <main className="manual-match-page" data-testid="manual-match-page">
       <header className="manual-match-header">
         <div>
-          <div className="eyebrow">导入步骤 2 / 2</div>
-          <h1>手动确认精灵与法线配对</h1>
-          <p>自动匹配成功的项目已经预填；失败的项目可以从左侧拖拽到下方平行匹配行。</p>
+          <div className="eyebrow">{t('导入步骤 2 / 2')}</div>
+          <h1>{t('手动确认精灵与法线配对')}</h1>
+          <p>{t('自动匹配成功的项目已经预填；失败的项目可以从左侧拖拽到下方平行匹配行。')}</p>
         </div>
         <div className="manual-match-header-actions">
-          <button type="button" className="button" onClick={onCancel}>取消导入</button>
+          <button type="button" className="button" onClick={onCancel}>{t('取消导入')}</button>
           <button
             type="button"
             className="button button-primary"
@@ -256,29 +257,29 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
             onClick={confirm}
             data-testid="confirm-manual-match"
           >
-            确认 {draftBundle.frames.length} 帧并进入编辑器
+            {t('确认 {count} 帧并进入编辑器', { count: draftBundle.frames.length })}
           </button>
         </div>
       </header>
 
       <div className="manual-match-summary">
-        <span>自动匹配 <strong>{initial.rows.length}</strong></span>
-        <span>当前配对列 <strong>{matchedRows.length}</strong></span>
-        <span>待匹配精灵 <strong>{unpairedFrames.length}</strong></span>
-        <span>待匹配非精灵图 <strong>{unpairedNormals.length}</strong></span>
-        <span className={errors.length > 0 ? 'has-error' : ''}>错误 <strong>{errors.length}</strong></span>
+        <span>{t('自动匹配')} <strong>{initial.rows.length}</strong></span>
+        <span>{t('当前配对列')} <strong>{matchedRows.length}</strong></span>
+        <span>{t('待匹配精灵')} <strong>{unpairedFrames.length}</strong></span>
+        <span>{t('待匹配非精灵图')} <strong>{unpairedNormals.length}</strong></span>
+        <span className={errors.length > 0 ? 'has-error' : ''}>{t('错误')} <strong>{errors.length}</strong></span>
       </div>
 
       <div className="manual-match-layout">
         <aside className="matching-image-pool">
           <section>
             <div className="section-title-row">
-              <strong>精灵图池</strong>
+              <strong>{t('精灵图池')}</strong>
               <span>{unpairedFrames.length}</span>
             </div>
             <div className="matching-pool-list">
               {unpairedFrames.length === 0 ? (
-                <div className="empty-inline">所有精灵图都已放入匹配列。</div>
+                <div className="empty-inline">{t('所有精灵图都已放入匹配列。')}</div>
               ) : (
                 unpairedFrames.map((frame) => {
                   const image = frameImage(bundle, frame)
@@ -298,12 +299,12 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
 
           <section>
             <div className="section-title-row">
-              <strong>非精灵图 / 法线图池</strong>
+              <strong>{t('非精灵图 / 法线图池')}</strong>
               <span>{unpairedNormals.length}</span>
             </div>
             <div className="matching-pool-list">
               {unpairedNormals.length === 0 ? (
-                <div className="empty-inline">所有法线图都已放入匹配列。</div>
+                <div className="empty-inline">{t('所有法线图都已放入匹配列。')}</div>
               ) : (
                 unpairedNormals.map((candidate) => {
                   const image = candidateImage(bundle, candidate)
@@ -325,24 +326,24 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
         <section className="matching-workspace">
           <div className="matching-workspace-heading">
             <div>
-              <strong>配对列</strong>
-              <span>上方一行放精灵图，下方一行放对应法线图；每组配对向右增加一列。</span>
+              <strong>{t('配对列')}</strong>
+              <span>{t('上方一行放精灵图，下方一行放对应法线图；每组配对向右增加一列。')}</span>
             </div>
-            <button type="button" className="button" onClick={addRow}>添加匹配列</button>
+            <button type="button" className="button" onClick={addRow}>{t('添加匹配列')}</button>
           </div>
 
           <div className="matching-board">
             <div className="matching-lane-labels" aria-hidden="true">
-              <span>精灵图</span>
-              <span>非精灵图 / 法线图</span>
+              <span>{t('精灵图')}</span>
+              <span>{t('非精灵图 / 法线图')}</span>
             </div>
 
             {rows.length === 0 ? (
               <div className="matching-empty-state" onDragOver={(event) => event.preventDefault()}>
-                <strong>还没有匹配列</strong>
-                <span>点击“添加匹配列”，再把左侧图片拖入对应列。</span>
+                <strong>{t('还没有匹配列')}</strong>
+                <span>{t('点击“添加匹配列”，再把左侧图片拖入对应列。')}</span>
                 <button type="button" className="button button-primary" onClick={addRow}>
-                  添加第一列
+                  {t('添加第一列')}
                 </button>
               </div>
             ) : (
@@ -357,9 +358,9 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
                   return (
                     <article className="matching-column" key={row.id} data-column-id={row.id}>
                       <div className="matching-column-heading">
-                        <span>列 {String(index + 1).padStart(2, '0')}</span>
+                        <span>{t('列 {index}', { index: String(index + 1).padStart(2, '0') })}</span>
                         <button type="button" className="mini-button danger" onClick={() => removeRow(row.id)}>
-                          移除列
+                          {t('移除列')}
                         </button>
                       </div>
 
@@ -402,11 +403,11 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
                                 clearSlot(row.id, 'source')
                               }}
                             >
-                              清除
+                              {t('清除')}
                             </button>
                           </>
                         ) : (
-                          <span className="matching-slot-placeholder">拖入精灵图</span>
+                          <span className="matching-slot-placeholder">{t('拖入精灵图')}</span>
                         )}
                       </div>
 
@@ -451,17 +452,17 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
                                 clearSlot(row.id, 'normal')
                               }}
                             >
-                              清除
+                              {t('清除')}
                             </button>
                           </>
                         ) : (
-                          <span className="matching-slot-placeholder">拖入对应法线图</span>
+                          <span className="matching-slot-placeholder">{t('拖入对应法线图')}</span>
                         )}
                       </div>
 
                       <div className="matching-column-state">
                         <span className={`pair-dot pair-${frame && candidate ? 'manual' : 'missing'}`} />
-                        <small>{frame && candidate ? '已配对' : '缺少法线'}</small>
+                        <small>{frame && candidate ? t('已配对') : t('缺少法线')}</small>
                       </div>
                     </article>
                   )
@@ -473,8 +474,8 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
             <div className="matching-errors" role="alert">
               {errors.map((warning, index) => (
                 <div className="warning-card warning-error" key={`${warning.code}:${index}`}>
-                  <strong>阻止导入</strong>
-                  <span>{warning.message}</span>
+                  <strong>{t('阻止导入')}</strong>
+                  <span>{t(warning.message)}</span>
                 </div>
               ))}
             </div>
@@ -499,10 +500,10 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
           >
             <header>
               <div>
-                <div className="eyebrow">{previewTarget.kind === 'source' ? '精灵图' : '法线图'}</div>
+                <div className="eyebrow">{previewTarget.kind === 'source' ? t('精灵图') : t('法线图')}</div>
                 <h2 id="image-zoom-title">{previewTarget.name}</h2>
               </div>
-              <button type="button" className="button" onClick={() => setPreviewTarget(undefined)}>关闭</button>
+              <button type="button" className="button" onClick={() => setPreviewTarget(undefined)}>{t('关闭')}</button>
             </header>
             <div className="image-zoom-canvas">
               <Thumbnail
@@ -513,9 +514,12 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
               />
             </div>
             <p>
-              原始尺寸 {previewTarget.image.width}×{previewTarget.image.height}
+              {t('原始尺寸 {width}×{height}', { width: previewTarget.image.width, height: previewTarget.image.height })}
               {previewTarget.rect
-                ? ` · 切片区域 ${previewTarget.rect.width}×${previewTarget.rect.height}`
+                ? t(' · 切片区域 {width}×{height}', {
+                    width: previewTarget.rect.width,
+                    height: previewTarget.rect.height,
+                  })
                 : ''}
             </p>
           </div>

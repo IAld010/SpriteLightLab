@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import type { LightSource } from '../domain/types'
 import { useProjectStore } from '../store/projectStore'
+import { t } from '../i18n'
 
 function SpotCone({ light }: { light: LightSource }) {
   const halfAngle = (light.coneAngle * Math.PI) / 360
@@ -38,7 +39,7 @@ export function LightOverlay() {
   )
 
   return (
-    <div ref={overlayRef} className="light-overlay" aria-label="棋盘区域光源控制层">
+    <div ref={overlayRef} className="light-overlay" aria-label={t('棋盘区域光源控制层')}>
       {positionedLights.map((light) => {
         const selected = light.id === lighting.selectedLightId
         const updateFromPointer = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -71,7 +72,7 @@ export function LightOverlay() {
             <button
               type="button"
               className="light-handle"
-              title={`${light.name}：拖拽移动发光原点`}
+              title={t('{name}：拖拽移动发光原点', { name: light.name })}
               onPointerDown={(event) => {
                 event.stopPropagation()
                 event.currentTarget.setPointerCapture(event.pointerId)

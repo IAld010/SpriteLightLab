@@ -16,6 +16,7 @@ import { ActionManager } from './ActionManager'
 import { ImportRulesPanel } from './ImportRulesPanel'
 import { useProjectStore } from '../store/projectStore'
 import { downloadBlob, downloadText } from '../utils/download'
+import { t } from '../i18n'
 
 interface ProjectPanelProps {
   rendererStatus: string
@@ -62,27 +63,27 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
       <ActionManager />
       <section className="inspector-section">
         <label className="field">
-          <span>项目名称</span>
+          <span>{t('项目名称')}</span>
           <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
         </label>
       </section>
 
       <section className="inspector-section key-value-list">
         <div>
-          <span>数据来源</span>
-          <strong>{bundle?.sourceName ?? '尚未导入'}</strong>
+          <span>{t('数据来源')}</span>
+          <strong>{bundle?.sourceName ?? t('尚未导入')}</strong>
         </div>
         <div>
-          <span>渲染后端</span>
-          <strong>{rendererStatus}</strong>
+          <span>{t('渲染后端')}</span>
+          <strong>{t(rendererStatus)}</strong>
         </div>
         <div>
-          <span>色板模式</span>
-          <strong>{bundle?.paletteMode === 'indexed' ? '索引色' : '全彩'}</strong>
+          <span>{t('色板模式')}</span>
+          <strong>{bundle?.paletteMode === 'indexed' ? t('索引色') : t('全彩')}</strong>
         </div>
         <div>
-          <span>隐私</span>
-          <strong>仅本地处理</strong>
+          <span>{t('隐私')}</span>
+          <strong>{t('仅本地处理')}</strong>
         </div>
       </section>
 
@@ -95,7 +96,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
       </section>
 
       <section className="inspector-section">
-        <strong>PNG 导出</strong>
+        <strong>{t('PNG 导出')}</strong>
         <div className="export-stack">
           <button
             type="button"
@@ -113,7 +114,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
               }
             }}
           >
-            导出当前预览
+            {t('导出当前预览')}
           </button>
           <button
             type="button"
@@ -131,13 +132,13 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
               }
             }}
           >
-            导出透明当前帧
+            {t('导出透明当前帧')}
           </button>
         </div>
       </section>
 
       <section className="inspector-section">
-        <strong>项目文件</strong>
+        <strong>{t('项目文件')}</strong>
         <div className="export-stack">
           <button
             type="button"
@@ -156,7 +157,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
               }
             }}
           >
-            导出轻量 JSON
+            {t('导出轻量 JSON')}
           </button>
           <button
             type="button"
@@ -172,7 +173,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
               }
             }}
           >
-            导出自包含 JSON
+            {t('导出自包含 JSON')}
           </button>
           <button
             type="button"
@@ -191,14 +192,14 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
               }
             }}
           >
-            导出 ZIP 项目包
+            {t('导出 ZIP 项目包')}
           </button>
           <button
             type="button"
             className="button"
             onClick={() => fileInput.current?.click()}
           >
-            导入项目
+            {t('导入项目')}
           </button>
           <input
             ref={fileInput}
@@ -236,11 +237,11 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
             }}
           />
         </div>
-        {message && <p className="field-help">{message}</p>}
+        {message && <p className="field-help">{t(message)}</p>}
       </section>
 
       <section className="inspector-section">
-        <strong>渲染选项</strong>
+        <strong>{t('渲染选项')}</strong>
         <label className="checkbox-row">
           <input
             type="checkbox"
@@ -249,26 +250,26 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
               updateRenderPreferences({ pixelPerfect: event.target.checked })
             }
           />
-          像素级采样
+          {t('像素级采样')}
         </label>
       </section>
 
       <section className="inspector-section">
         <div className="section-title-row">
-          <strong>问题</strong>
+          <strong>{t('问题')}</strong>
           <span>{warnings.length}</span>
         </div>
         <div className="warning-list">
           {warnings.length === 0 ? (
-            <div className="success-card">当前没有需要处理的问题。</div>
+            <div className="success-card">{t('当前没有需要处理的问题。')}</div>
           ) : (
             warnings.map((warning, index) => (
               <div
                 className={`warning-card warning-${warning.severity}`}
                 key={`${warning.code}:${warning.frameId ?? index}:${index}`}
               >
-                <strong>{warning.severity === 'error' ? '阻止配对' : '注意'}</strong>
-                <span>{warning.message}</span>
+                <strong>{warning.severity === 'error' ? t('阻止配对') : t('注意')}</strong>
+                <span>{t(warning.message)}</span>
               </div>
             ))
           )}

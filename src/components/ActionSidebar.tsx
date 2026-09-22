@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { getSelectedAction, useEditorStore } from '../store/editorStore'
+import { t } from '../i18n'
 
 export function ActionSidebar() {
   const bundle = useEditorStore((state) => state.bundle)
@@ -13,9 +14,9 @@ export function ActionSidebar() {
     return (
       <aside className="panel action-panel">
         <div className="panel-heading">
-          <span>动作</span>
+          <span>{t('动作')}</span>
         </div>
-        <div className="empty-list">导入素材后显示动作。</div>
+        <div className="empty-list">{t('导入素材后显示动作。')}</div>
       </aside>
     )
   }
@@ -33,7 +34,7 @@ export function ActionSidebar() {
     <aside className="panel action-panel">
       <section className="panel-section actions-section">
         <div className="panel-heading">
-          <span>动作</span>
+          <span>{t('动作')}</span>
           <span className="count-badge">{bundle.animations.length}</span>
         </div>
         <div className="action-list">
@@ -51,7 +52,7 @@ export function ActionSidebar() {
           ))}
         </div>
         <label className="field compact-field">
-          <span>动作名称</span>
+          <span>{t('动作名称')}</span>
           <input
             key={action.id}
             ref={actionNameInput}

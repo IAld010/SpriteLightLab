@@ -5,6 +5,7 @@ import { PreviewRenderer } from '../renderer/PreviewRenderer'
 import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
 import { resolveFrameAlignment } from '../domain/alignment'
 import { activePaletteFromState, useProjectStore } from '../store/projectStore'
+import { t } from '../i18n'
 
 const EMPTY_PALETTE_SOURCES: string[] = []
 
@@ -67,7 +68,7 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
 
     let disposed = false
     setError(undefined)
-    onStatusChange('\u6b63\u5728\u521d\u59cb\u5316\u2026')
+    onStatusChange('正在初始化…')
     const options = renderOptions.current
 
     void PreviewRenderer.create(host, bundle, backend, options)
@@ -97,9 +98,9 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
           return
         }
         const message =
-          reason instanceof Error ? reason.message : '\u9884\u89c8\u6e32\u67d3\u5668\u521d\u59cb\u5316\u5931\u8d25\u3002'
+          reason instanceof Error ? reason.message : '预览渲染器初始化失败。'
         setError(message)
-        onStatusChange('\u521d\u59cb\u5316\u5931\u8d25')
+        onStatusChange('初始化失败')
       })
       .then(() => {
         if (!disposed) {
@@ -111,7 +112,7 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
       disposed = true
       rendererRef.current?.destroy()
       rendererRef.current = undefined
-      onStatusChange('\u672a\u8fde\u63a5')
+      onStatusChange('未连接')
     }
   }, [backend, bundle, onStatusChange])
 
@@ -122,7 +123,7 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
     }
     void renderer.setFrame(currentFrame, textureMode, frameAlignment, actionAlignment).catch((reason: unknown) =>
       setError(
-        reason instanceof Error ? reason.message : '\u5f53\u524d\u5e27\u52a0\u8f7d\u5931\u8d25\u3002',
+        reason instanceof Error ? reason.message : '当前帧加载失败。',
       ),
     )
   }, [actionAlignment, currentFrame, frameAlignment, readyVersion, textureMode])
@@ -157,7 +158,7 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
         ref={hostRef}
         className="preview-canvas-host"
         data-background={background}
-        aria-label={'\u5b9e\u65f6\u9884\u89c8'}
+        aria-label={t('实时预览')}
         onPointerDown={(event) => {
           if (event.button !== 0 || (event.target as HTMLElement).closest('.light-handle')) {
             return
@@ -192,27 +193,27 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
       {!bundle && (
         <div className="preview-placeholder">
           <div className="placeholder-mark">SL</div>
-          <h2>{'\u628a\u7cbe\u7075\u56fe\u548c\u6cd5\u7ebf\u56fe\u653e\u5230\u8fd9\u91cc'}</h2>
+          <h2>{t('把精灵图和法线图放到这里')}</h2>
           <p>
-            {'\u652f\u6301\u9010\u5e27 PNG\u3001_n / _normal \u6cd5\u7ebf\u56fe\uff0c\u4ee5\u53ca Aseprite / TexturePacker JSON\u3002'}
+            {t('支持逐帧 PNG、_n / _normal 法线图，以及 Aseprite / TexturePacker JSON。')}
           </p>
         </div>
       )}
       {error && (
         <div className="renderer-error" role="alert">
-          <strong>{'\u65e0\u6cd5\u4f7f\u7528\u5f53\u524d\u6e32\u67d3\u540e\u7aef'}</strong>
-          <span>{error}</span>
+          <strong>{t('无法使用当前渲染后端')}</strong>
+          <span>{t(error)}</span>
           <small>
-            {'\u53ef\u5207\u6362\u5230 WebGL2 \u540e\u7ee7\u7eed\uff1bWebGPU \u7684\u5b8c\u6574\u5149\u7167\u4f1a\u5728\u9636\u6bb5 3 \u9a8c\u6536\u3002'}
+            {t('可切换到 WebGL2 后继续；WebGPU 的完整光照会在后续阶段验收。')}
           </small>
         </div>
       )}
       <LightOverlay />
       <div className="canvas-corner-label">
         {textureMode === 'normal'
-          ? '\u6cd5\u7ebf\u56fe\u9884\u89c8'
-          : '\u989c\u8272\u56fe\u9884\u89c8'}{' '}
-        · {Math.round(zoom * 100)}%
+          ? t('法线图预览')
+          : t('颜色图预览')}{' · '}{Math.round(zoom * 100)}%
+
       </div>
     </div>
   )

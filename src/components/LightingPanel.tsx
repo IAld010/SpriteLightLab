@@ -1,6 +1,7 @@
 import { useEditorStore } from '../store/editorStore'
 import { useProjectStore } from '../store/projectStore'
 import type { LightType } from '../domain/types'
+import { t } from '../i18n'
 
 export function LightingPanel() {
   const bundle = useEditorStore((state) => state.bundle)
@@ -18,7 +19,7 @@ export function LightingPanel() {
   const selectedLight = lighting.lights.find((light) => light.id === lighting.selectedLightId)
 
   if (!bundle) {
-    return <div className="empty-list">导入素材后启用法线光照。</div>
+    return <div className="empty-list">{t('导入素材后启用法线光照。')}</div>
   }
 
   return (
@@ -27,7 +28,7 @@ export function LightingPanel() {
         <div className="section-title-row">
           <div>
             <div className="eyebrow">2D Lighting</div>
-            <strong className="panel-title">法线光照工作台</strong>
+            <strong className="panel-title">{t('法线光照工作台')}</strong>
           </div>
           <label className="switch-control">
             <input
@@ -37,12 +38,12 @@ export function LightingPanel() {
                 updateRenderPreferences({ lightingEnabled: event.target.checked })
               }
             />
-            <span>启用</span>
+            <span>{t('启用')}</span>
           </label>
         </div>
         <div className="range-grid">
           <RangeField
-            label="法线强度"
+            label={t('法线强度')}
             min={0}
             max={2}
             step={0.01}
@@ -50,7 +51,7 @@ export function LightingPanel() {
             onChange={(normalStrength) => updateRenderPreferences({ normalStrength })}
           />
           <RangeField
-            label="高光"
+            label={t('高光')}
             min={0}
             max={1}
             step={0.01}
@@ -69,17 +70,17 @@ export function LightingPanel() {
             checked={preferences.flipGreen}
             onChange={(event) => updateRenderPreferences({ flipGreen: event.target.checked })}
           />
-          翻转法线绿色通道（DirectX）
+          {t('翻转法线绿色通道（DirectX）')}
         </label>
       </section>
 
       <section className="inspector-section">
-        <strong>环境光</strong>
+        <strong>{t('环境光')}</strong>
         <div className="color-setting-row">
           <input
             type="color"
             value={lighting.ambientColor}
-            aria-label="环境光颜色"
+            aria-label={t('环境光颜色')}
             onChange={(event) => updateAmbient({ ambientColor: event.target.value })}
           />
           <code>{lighting.ambientColor}</code>
@@ -89,7 +90,7 @@ export function LightingPanel() {
             max="2"
             step="0.01"
             value={lighting.ambientIntensity}
-            aria-label="环境光强度"
+            aria-label={t('环境光强度')}
             onChange={(event) =>
               updateAmbient({ ambientIntensity: Number(event.target.value) })
             }
@@ -100,7 +101,7 @@ export function LightingPanel() {
 
       <section className="inspector-section">
         <div className="section-title-row">
-          <strong>光源</strong>
+          <strong>{t('光源')}</strong>
           <span>{lighting.lights.length} / 32</span>
         </div>
         <div className="add-light-row">
@@ -112,7 +113,7 @@ export function LightingPanel() {
               disabled={lighting.lights.length >= 32}
               onClick={() => addLight(type)}
             >
-              + {type === 'directional' ? '方向光' : type === 'point' ? '点光' : '聚光'}
+              + {type === 'directional' ? t('方向光') : type === 'point' ? t('点光') : t('聚光')}
             </button>
           ))}
         </div>
@@ -125,13 +126,13 @@ export function LightingPanel() {
               <button type="button" className="light-main" onClick={() => selectLight(light.id)}>
                 <span className="color-chip" style={{ background: light.color }} />
                 <span>{light.name}</span>
-                <small>{light.type === 'directional' ? '方向光' : light.type === 'point' ? '点光' : '聚光'}</small>
+                <small>{light.type === 'directional' ? t('方向光') : light.type === 'point' ? t('点光') : t('聚光')}</small>
               </button>
               <div className="light-row-actions">
                 <input
                   type="checkbox"
                   checked={light.enabled}
-                  aria-label={`\u542f\u7528 ${light.name}`}
+                  aria-label={t('启用 {name}', { name: light.name })}
                   onChange={(event) => updateLight(light.id, { enabled: event.target.checked })}
                 />
 
@@ -144,20 +145,20 @@ export function LightingPanel() {
       {selectedLight && (
         <section className="inspector-section light-editor">
           <div className="section-title-row">
-            <strong>编辑 {selectedLight.name}</strong>
+            <strong>{t('编辑 {name}', { name: selectedLight.name })}</strong>
             <button
               type="button"
               className="mini-button danger"
               onClick={() => removeLight(selectedLight.id)}
             >
-              删除
+              {t('删除')}
             </button>
           </div>
           <div className="color-setting-row">
             <input
               type="color"
               value={selectedLight.color}
-              aria-label="光源颜色"
+              aria-label={t('光源颜色')}
               onChange={(event) => updateLight(selectedLight.id, { color: event.target.value })}
             />
             <code>{selectedLight.color}</code>
@@ -167,7 +168,7 @@ export function LightingPanel() {
               max="3"
               step="0.01"
               value={selectedLight.intensity}
-              aria-label="光源强度"
+              aria-label={t('光源强度')}
               onChange={(event) =>
                 updateLight(selectedLight.id, { intensity: Number(event.target.value) })
               }
@@ -177,7 +178,7 @@ export function LightingPanel() {
 
           {selectedLight.type !== 'point' && (
             <RangeField
-              label="方向角"
+              label={t('方向角')}
               min={0}
               max={360}
               step={1}
@@ -192,15 +193,15 @@ export function LightingPanel() {
                 <input
                   type="checkbox"
                   checked={selectedLight.handleVisible}
-                  aria-label={`显示 ${selectedLight.name} 画布手柄`}
+                  aria-label={t('显示 {name} 画布手柄', { name: selectedLight.name })}
                   onChange={(event) =>
                     updateLight(selectedLight.id, { handleVisible: event.target.checked })
                   }
                 />
-                显示画布手柄
+                {t('显示画布手柄')}
               </label>
               <RangeField
-                label="棋盘 X"
+                label={t('棋盘 X')}
                 min={0}
                 max={1}
                 step={0.005}
@@ -208,7 +209,7 @@ export function LightingPanel() {
                 onChange={(x) => updateLight(selectedLight.id, { x })}
               />
               <RangeField
-                label="棋盘 Y"
+                label={t('棋盘 Y')}
                 min={0}
                 max={1}
                 step={0.005}
@@ -216,7 +217,7 @@ export function LightingPanel() {
                 onChange={(y) => updateLight(selectedLight.id, { y })}
               />
               <RangeField
-                label="作用半径"
+                label={t('作用半径')}
                 min={0.05}
                 max={2}
                 step={0.01}
@@ -224,7 +225,7 @@ export function LightingPanel() {
                 onChange={(radius) => updateLight(selectedLight.id, { radius })}
               />
               <RangeField
-                label="二次衰减"
+                label={t('二次衰减')}
                 min={0.1}
                 max={40}
                 step={0.1}
@@ -237,7 +238,7 @@ export function LightingPanel() {
           {selectedLight.type === 'spot' && (
             <>
               <RangeField
-                label="聚光角度"
+                label={t('聚光角度')}
                 min={1}
                 max={179}
                 step={1}
@@ -245,7 +246,7 @@ export function LightingPanel() {
                 onChange={(coneAngle) => updateLight(selectedLight.id, { coneAngle })}
               />
               <RangeField
-                label="边缘柔化"
+                label={t('边缘柔化')}
                 min={0}
                 max={1}
                 step={0.01}
@@ -258,7 +259,7 @@ export function LightingPanel() {
       )}
 
       <section className="inspector-section">
-        <strong>预览背景</strong>
+        <strong>{t('预览背景')}</strong>
         <div className="segmented full-width">
           {(['checker', 'dark', 'light'] as const).map((value) => (
             <button
@@ -267,7 +268,7 @@ export function LightingPanel() {
               className={background === value ? 'is-active' : ''}
               onClick={() => setBackground(value)}
             >
-              {value === 'checker' ? '棋盘' : value === 'dark' ? '深色' : '浅色'}
+              {value === 'checker' ? t('棋盘') : value === 'dark' ? t('深色') : t('浅色')}
             </button>
           ))}
         </div>

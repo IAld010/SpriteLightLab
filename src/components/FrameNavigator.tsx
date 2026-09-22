@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
 import { markInternalDrag } from '../utils/dragAndDrop'
+import { t } from '../i18n'
 
 function pairTitle(
   normal: boolean,
   pairingStatus: 'matched' | 'manual' | 'missing' | 'mismatch',
 ): string {
   if (normal) {
-    return pairingStatus === 'manual' ? '手工配对法线图' : '已配对法线图'
+    return pairingStatus === 'manual' ? t('手工配对法线图') : t('已配对法线图')
   }
-  return pairingStatus === 'mismatch' ? '图集布局不匹配' : '缺少法线图'
+  return pairingStatus === 'mismatch' ? t('图集布局不匹配') : t('缺少法线图')
 }
 
 export function FrameNavigator() {
@@ -41,10 +42,10 @@ export function FrameNavigator() {
   return (
     <section className="inspector-section frame-navigator-section">
       <div className="section-title-row">
-        <strong>帧导航</strong>
+        <strong>{t('帧导航')}</strong>
         <span className="count-badge">{frames.length}</span>
       </div>
-      <p className="field-help">与底部帧格同步；拖拽可调整帧顺序。</p>
+      <p className="field-help">{t('与底部帧格同步；拖拽可调整帧顺序。')}</p>
       <div className="frame-list inspector-frame-list">
         {frames.map((frame, index) => {
           const active = currentFrame?.id === frame.id || index === currentFrameIndex

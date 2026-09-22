@@ -56,6 +56,105 @@ test('demo picker exposes three example projects', async ({ page }) => {
   await expect(options.nth(2)).toContainText('Defold')
 })
 
+test('language switch updates the toolbar without breaking its layout', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'English' }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(page.getByRole('button', { name: 'Choose sprite files' })).toBeVisible()
+
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport)
+    const layout = await page.locator('.toolbar').evaluate((toolbar) => {
+      const actions = toolbar.querySelector('.toolbar-actions')!.getBoundingClientRect()
+      const settings = toolbar.querySelector('.toolbar-settings')!.getBoundingClientRect()
+      return {
+        scrollWidth: toolbar.scrollWidth,
+        clientWidth: toolbar.clientWidth,
+        actionsRight: actions.right,
+        settingsLeft: settings.left,
+      }
+    })
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1)
+    expect(layout.actionsRight).toBeLessThanOrEqual(layout.settingsLeft + 1)
+  }
+
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(page.getByRole('button', { name: 'Choose sprite files' })).toBeVisible()
+
+  await page.locator('.language-switch button').first().click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN')
+  await expect(page.getByRole('button', { name: 'Choose sprite files' })).toHaveCount(0)
+})
+
+test('English localization covers workspace pages without horizontal overflow', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'English' }).click()
+  await expect(page.getByText('Local projects', { exact: true })).toBeVisible()
+  await expect(page.getByText('Sprite projects', { exact: true })).toBeVisible()
+  await expect(page.getByText('No saved projects yet', { exact: true })).toBeVisible()
+
+  await chooseDemo(page, 0)
+  const tabs = page.locator('.inspector-tabs-five button')
+  await expect(tabs.nth(0)).toHaveText('Palette')
+  await expect(tabs.nth(1)).toHaveText('Lighting')
+  await expect(tabs.nth(2)).toHaveText('Frames')
+  await expect(tabs.nth(3)).toHaveText('Project')
+  await expect(tabs.nth(4)).toHaveText('Anchor')
+
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport)
+    const pageLayout = await page.evaluate(() => ({
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+      toolbarWidth: document.querySelector('.toolbar')!.scrollWidth,
+      toolbarClientWidth: document.querySelector('.toolbar')!.clientWidth,
+    }))
+    expect(pageLayout.documentWidth).toBeLessThanOrEqual(pageLayout.viewportWidth + 1)
+    expect(pageLayout.toolbarWidth).toBeLessThanOrEqual(pageLayout.toolbarClientWidth + 1)
+  }
+
+  const panels = [
+    { tab: 0, selector: '.palette-panel', text: 'Palette Swap' },
+    { tab: 1, selector: '.lighting-panel', text: 'Normal lighting lab' },
+    { tab: 2, selector: '.frame-navigator-section', text: 'Frame navigator' },
+    { tab: 3, selector: '.project-panel', text: 'Render options' },
+    { tab: 4, selector: '.anchor-panel', text: 'Anchor calibration' },
+  ]
+  for (const panel of panels) {
+    await tabs.nth(panel.tab).click()
+    const panelRoot = page.locator(panel.selector)
+    await expect(panelRoot).toContainText(panel.text)
+    const layout = await panelRoot.evaluate((element) => ({
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    }))
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1)
+  }
+
+  await page.setViewportSize({ width: 1280, height: 720 })
+  for (const panel of panels) {
+    await tabs.nth(panel.tab).click()
+    const layout = await page.locator(panel.selector).evaluate((element) => ({
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    }))
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1)
+  }
+
+  await page.getByTestId('open-import-guide').click()
+  const guide = page.getByTestId('import-guide-dialog')
+  await expect(guide).toContainText('Import guide')
+  expect(await guide.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1)
+  await guide.getByRole('button', { name: 'Close' }).click()
+
+  await page.getByTestId('open-grid-import').click()
+  const gridDialog = page.getByTestId('grid-import-dialog')
+  await expect(gridDialog).toContainText('Fixed-grid slicing')
+  expect(await gridDialog.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1)
+  await gridDialog.getByRole('button', { name: 'Close' }).click()
+})
+
 test('stage 1 imports the demo, groups clips and supports frame interaction', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByTestId('project-library')).toBeVisible()
@@ -303,6 +402,24 @@ test('palette, lighting and ZIP project pack work together', async ({ page }) =>
   const outputDirectory = process.env.STAGE1_OUTPUT_DIR ?? path.join(process.cwd(), 'test-results')
   await mkdir(outputDirectory, { recursive: true })
   await page.screenshot({ path: path.join(outputDirectory, 'sprite-light-lab-palette-light.png'), fullPage: true })
+})
+
+test('palette name input can be cleared before committing a new name', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.locator('.inspector-tabs-five button').nth(0).click()
+  const input = page.locator('.palette-name-input')
+  const original = await input.inputValue()
+
+  await input.fill('')
+  await expect(input).toHaveValue('')
+  await input.fill('Custom Palette')
+  await input.press('Enter')
+  await expect(input).toHaveValue('Custom Palette')
+
+  await input.fill('')
+  await input.press('Enter')
+  await expect(input).toHaveValue(original)
 })
 
 test('palette picker uses the in-app menu for mouse and keyboard selection', async ({ page }) => {
@@ -1196,6 +1313,12 @@ test('manual matching page pairs images with different names by drag and drop', 
 
   const pageRoot = page.getByTestId('manual-match-page')
   await expect(pageRoot).toBeVisible()
+  await page.getByRole('button', { name: 'English' }).click()
+  await expect(pageRoot).toContainText('Confirm sprite and normal pairing')
+  await expect(pageRoot).toContainText('Add pairing column')
+  await page.locator('.language-switch button').first().click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN')
+  await expect(pageRoot).not.toContainText('Confirm sprite and normal pairing')
   await expect(pageRoot).toContainText('walk_0001.png')
   await expect(pageRoot).toContainText('尺寸必须完全一致')
   await expect(page.locator('.matching-column')).toHaveCount(0)

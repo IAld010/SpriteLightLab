@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { getSelectedAction, useEditorStore } from '../store/editorStore'
+import { t } from '../i18n'
 
 export function ActionManager() {
   const bundle = useEditorStore((state) => state.bundle)
@@ -25,7 +26,7 @@ export function ActionManager() {
   return (
     <section className="inspector-section action-manager-section">
       <div className="section-title-row">
-        <strong>动作</strong>
+        <strong>{t('动作')}</strong>
         <span className="count-badge">{bundle.animations.length}</span>
       </div>
       <div className="action-list inspector-action-list">
@@ -43,7 +44,7 @@ export function ActionManager() {
         ))}
       </div>
       <label className="field compact-field">
-        <span>动作名称</span>
+        <span>{t('动作名称')}</span>
         <input
           key={action.id}
           ref={actionNameInput}

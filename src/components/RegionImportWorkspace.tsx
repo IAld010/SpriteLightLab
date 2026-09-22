@@ -7,6 +7,7 @@ import {
 } from '../domain/regionImport'
 import type { RegionImportConfig, Rect } from '../domain/types'
 import { useObjectUrl } from '../hooks/useObjectUrl'
+import { t } from '../i18n'
 
 interface RegionImportWorkspaceProps {
   colorFile?: File
@@ -75,7 +76,7 @@ function RegionEditor({
     original: Rect
   } | undefined>(undefined)
   if (!imageUrl || !size) {
-    return <div className="grid-preview-empty">选择颜色大图后显示区域编辑画布</div>
+    return <div className="grid-preview-empty">{t('选择颜色大图后显示区域编辑画布')}</div>
   }
 
   const updateFromPointer = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -113,7 +114,7 @@ function RegionEditor({
       onPointerUp={() => { dragRef.current = undefined }}
       onPointerCancel={() => { dragRef.current = undefined }}
     >
-      <img src={imageUrl} alt="不规则区域编辑" draggable={false} />
+      <img src={imageUrl} alt={t('不规则区域编辑')} draggable={false} />
       {regions.map((rect, index) => (
         <div
           className={`region-editor-box ${selectedIndex === index ? 'is-selected' : ''}`}
@@ -293,21 +294,21 @@ export function RegionImportWorkspace({
       <aside className="region-import-settings">
         <section className="inspector-section">
           <div className="section-title-row">
-            <strong>自动检测参数</strong>
+            <strong>{t('自动检测参数')}</strong>
             <button type="button" className="mini-button" onClick={() => detecting ? cancelDetection() : void runDetection()}>
-              {detecting ? `取消检测 ${Math.round(detectionProgress * 100)}%` : '重新检测'}
+              {detecting ? t('取消检测 {percent}%', { percent: Math.round(detectionProgress * 100) }) : t('重新检测')}
             </button>
           </div>
-          <p className="field-help">自动检测最多处理 1600 万像素；超大图片会提示改用手动区域。</p>
+          <p className="field-help">{t('自动检测最多处理 1600 万像素；超大图片会提示改用手动区域。')}</p>
           <RangeField
-            label="透明阈值"
+            label={t('透明阈值')}
             min={0}
             max={254}
             value={config.alphaThreshold}
             onChange={(alphaThreshold) => updateConfig({ alphaThreshold })}
           />
           <label className="field">
-            <span>背景识别</span>
+            <span>{t('背景识别')}</span>
             <select
               value={config.backgroundMode}
               onChange={(event) =>
@@ -316,14 +317,14 @@ export function RegionImportWorkspace({
                 })
               }
             >
-              <option value="transparent">透明背景</option>
-              <option value="color">纯色背景</option>
+              <option value="transparent">{t('透明背景')}</option>
+              <option value="color">{t('纯色背景')}</option>
             </select>
           </label>
           {config.backgroundMode === 'color' && (
             <>
               <label className="field">
-                <span>背景色</span>
+                <span>{t('背景色')}</span>
                 <input
                   type="color"
                   value={config.backgroundColor}
@@ -331,7 +332,7 @@ export function RegionImportWorkspace({
                 />
               </label>
               <RangeField
-                label="颜色容差"
+                label={t('颜色容差')}
                 min={0}
                 max={255}
                 value={config.colorTolerance}
@@ -340,37 +341,37 @@ export function RegionImportWorkspace({
             </>
           )}
           <div className="grid-number-grid">
-            <NumberField label="最小宽度" value={config.minRegionWidth} min={1} onChange={(minRegionWidth) => updateConfig({ minRegionWidth })} />
-            <NumberField label="最小高度" value={config.minRegionHeight} min={1} onChange={(minRegionHeight) => updateConfig({ minRegionHeight })} />
-            <NumberField label="合并距离" value={config.mergeDistance} min={0} onChange={(mergeDistance) => updateConfig({ mergeDistance })} />
-            <NumberField label="外扩边距" value={config.padding} min={0} onChange={(padding) => updateConfig({ padding })} />
+            <NumberField label={t('最小宽度')} value={config.minRegionWidth} min={1} onChange={(minRegionWidth) => updateConfig({ minRegionWidth })} />
+            <NumberField label={t('最小高度')} value={config.minRegionHeight} min={1} onChange={(minRegionHeight) => updateConfig({ minRegionHeight })} />
+            <NumberField label={t('合并距离')} value={config.mergeDistance} min={0} onChange={(mergeDistance) => updateConfig({ mergeDistance })} />
+            <NumberField label={t('外扩边距')} value={config.padding} min={0} onChange={(padding) => updateConfig({ padding })} />
           </div>
           <label className="field">
-            <span>排序方式</span>
+            <span>{t('排序方式')}</span>
             <select
               value={config.frameOrder}
               onChange={(event) => updateConfig({ frameOrder: event.target.value as RegionImportConfig['frameOrder'] })}
             >
-              <option value="row-major">从左到右，再换下一行</option>
-              <option value="column-major">从上到下，再换下一列</option>
+              <option value="row-major">{t('从左到右，再换下一行')}</option>
+              <option value="column-major">{t('从上到下，再换下一列')}</option>
             </select>
           </label>
         </section>
 
         <section className="inspector-section">
-          <strong>手动调整</strong>
+          <strong>{t('手动调整')}</strong>
           <div className="region-action-grid">
-            <button type="button" className="mini-button" onClick={addRegion}>新增区域</button>
-            <button type="button" className="mini-button" disabled={!current} onClick={removeRegion}>删除区域</button>
-            <button type="button" className="mini-button" disabled={selectedIndex >= config.regions.length - 1} onClick={mergeWithNext}>合并下一帧</button>
-            <button type="button" className="mini-button" onClick={sortRegions}>按顺序排序</button>
+            <button type="button" className="mini-button" onClick={addRegion}>{t('新增区域')}</button>
+            <button type="button" className="mini-button" disabled={!current} onClick={removeRegion}>{t('删除区域')}</button>
+            <button type="button" className="mini-button" disabled={selectedIndex >= config.regions.length - 1} onClick={mergeWithNext}>{t('合并下一帧')}</button>
+            <button type="button" className="mini-button" onClick={sortRegions}>{t('按顺序排序')}</button>
           </div>
           {current && (
             <div className="grid-number-grid region-number-grid">
               <NumberField label="X" max={colorSize ? colorSize.width - 1 : undefined} value={current.x} onChange={(x) => updateRegion({ x })} />
               <NumberField label="Y" max={colorSize ? colorSize.height - 1 : undefined} value={current.y} onChange={(y) => updateRegion({ y })} />
-              <NumberField label="宽度" min={1} max={colorSize ? colorSize.width - current.x : undefined} value={current.width} onChange={(width) => updateRegion({ width })} />
-              <NumberField label="高度" min={1} max={colorSize ? colorSize.height - current.y : undefined} value={current.height} onChange={(height) => updateRegion({ height })} />
+              <NumberField label={t('宽度')} min={1} max={colorSize ? colorSize.width - current.x : undefined} value={current.width} onChange={(width) => updateRegion({ width })} />
+              <NumberField label={t('高度')} min={1} max={colorSize ? colorSize.height - current.y : undefined} value={current.height} onChange={(height) => updateRegion({ height })} />
             </div>
           )}
         </section>
@@ -378,8 +379,8 @@ export function RegionImportWorkspace({
 
       <section className="region-import-editor">
         <div className="grid-preview-heading">
-          <strong>不规则区域编辑</strong>
-          <span>{colorSize ? `${colorSize.width}×${colorSize.height}` : '尺寸未知'} · {config.regions.length} 帧 · {normalFile ? '法线图同步区域' : '平坦法线'}</span>
+          <strong>{t('不规则区域编辑')}</strong>
+          <span>{colorSize ? `${colorSize.width}×${colorSize.height}` : t('尺寸未知')} · {t('{count} 帧', { count: config.regions.length })} · {normalFile ? t('法线图同步区域') : t('平坦法线')}</span>
         </div>
         <RegionEditor
           imageUrl={imageUrl}
@@ -393,8 +394,8 @@ export function RegionImportWorkspace({
 
       <aside className="region-import-list">
         <div className="grid-preview-heading">
-          <strong>区域列表</strong>
-          <span>{config.regions.length} 个</span>
+          <strong>{t('区域列表')}</strong>
+          <span>{t('{count} 个', { count: config.regions.length })}</span>
         </div>
         <div className="region-list-scroll">
           {config.regions.map((region, index) => (
@@ -411,12 +412,12 @@ export function RegionImportWorkspace({
           ))}
         </div>
         <div className="region-rule-note">
-          <strong>法线图同步</strong>
-          <p>颜色图确认的区域矩形会原样应用到同尺寸法线图，不需要重新检测法线图。</p>
+          <strong>{t('法线图同步')}</strong>
+          <p>{t('颜色图确认的区域矩形会原样应用到同尺寸法线图，不需要重新检测法线图。')}</p>
         </div>
         {warnings.map((warning, index) => (
           <div className="warning-card warning-error" key={`${warning.code}:${index}`}>
-            <strong>阻止导入</strong>
+            <strong>{t('阻止导入')}</strong>
             <span>{warning.message}</span>
           </div>
         ))}

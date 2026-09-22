@@ -1,8 +1,9 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { parseProjectDocument } from '../domain/projectDocument'
 import { importPortableJson, importProjectZip } from '../services/projectIO'
 import { useEditorStore } from '../store/editorStore'
 import type { BackendPreference } from '../domain/types'
+import { useI18n } from '../i18n'
 
 interface ToolbarProps {
   onPickFiles: (files: File[]) => void
@@ -19,6 +20,7 @@ export function Toolbar({
   onOpenImportGuide,
   projectCount,
 }: ToolbarProps) {
+  const { language, setLanguage, t } = useI18n()
   const fileInput = useRef<HTMLInputElement>(null)
   const projectInput = useRef<HTMLInputElement>(null)
   const demoPickerRef = useRef<HTMLDivElement>(null)
@@ -67,7 +69,7 @@ export function Toolbar({
           onClick={() => fileInput.current?.click()}
           disabled={isImporting}
         >
-          选择素材文件
+          {t('选择素材文件')}
         </button>
         <button
           className="button"
@@ -75,10 +77,10 @@ export function Toolbar({
           onClick={onOpenGridImport}
           data-testid="open-grid-import"
         >
-          大图裁切
+          {t('大图裁切')}
         </button>
         <button className="button" type="button" onClick={() => projectInput.current?.click()}>
-          导入项目包
+          {t('导入项目包')}
         </button>
         <div className="demo-picker" ref={demoPickerRef}>
           <button
@@ -89,7 +91,7 @@ export function Toolbar({
             onClick={() => setDemoMenuOpen((open) => !open)}
             data-testid="demo-picker-trigger"
           >
-            示例项目 ▾
+            {t('示例项目 ▾')}
           </button>
           {demoMenuOpen && (
             <div className="demo-menu" role="menu" data-testid="demo-menu">
@@ -99,8 +101,8 @@ export function Toolbar({
                 role="menuitem"
                 onClick={() => chooseDemo(loadDemo)}
               >
-                <strong>普通演示</strong>
-                <span>索引色、法线光照和基础帧预览</span>
+                <strong>{t('普通演示')}</strong>
+                <span>{t('索引色、法线光照和基础帧预览')}</span>
               </button>
               <button
                 type="button"
@@ -108,8 +110,8 @@ export function Toolbar({
                 role="menuitem"
                 onClick={() => chooseDemo(loadFullColorDemo)}
               >
-                <strong>全彩演示</strong>
-                <span>渐变色、全彩调色规则和全局调整</span>
+                <strong>{t('全彩演示')}</strong>
+                <span>{t('渐变色、全彩调色规则和全局调整')}</span>
               </button>
               <button
                 type="button"
@@ -117,8 +119,8 @@ export function Toolbar({
                 role="menuitem"
                 onClick={() => chooseDemo(loadDefoldSample)}
               >
-                <strong>Defold 示例</strong>
-                <span>16 帧完整动作，包含 diffuse 和 normal 配对</span>
+                <strong>{t('Defold 示例')}</strong>
+                <span>{t('16 帧完整动作，包含 diffuse 和 normal 配对')}</span>
               </button>
             </div>
           )}
@@ -129,7 +131,7 @@ export function Toolbar({
           onClick={onOpenLibrary}
           data-testid="open-project-library"
         >
-          项目库 {projectCount > 0 ? `(${projectCount})` : ''}
+          {t('项目库')} {projectCount > 0 ? `(${projectCount})` : ''}
         </button>
         <button
           type="button"
@@ -137,7 +139,7 @@ export function Toolbar({
           onClick={onOpenImportGuide}
           data-testid="open-import-guide"
         >
-          ? 导入说明
+          {t('? 导入说明')}
         </button>
         <input
           ref={projectInput}
@@ -190,8 +192,26 @@ export function Toolbar({
       </div>
 
       <div className="toolbar-settings">
+        <div className="segmented language-switch" aria-label={t('界面语言')}>
+          <button
+            type="button"
+            className={language === 'zh-CN' ? 'is-active' : ''}
+            aria-pressed={language === 'zh-CN'}
+            onClick={() => setLanguage('zh-CN')}
+          >
+            中文
+          </button>
+          <button
+            type="button"
+            className={language === 'en' ? 'is-active' : ''}
+            aria-pressed={language === 'en'}
+            onClick={() => setLanguage('en')}
+          >
+            English
+          </button>
+        </div>
         <label className="compact-control">
-          <span>渲染后端</span>
+          <span>{t('渲染后端')}</span>
           <select
             value={backend}
             onChange={(event) => setBackend(event.target.value as BackendPreference)}
@@ -200,20 +220,20 @@ export function Toolbar({
             <option value="webgpu">WebGPU</option>
           </select>
         </label>
-        <div className="segmented" aria-label="预览纹理">
+        <div className="segmented" aria-label={t('预览纹理')}>
           <button
             type="button"
             className={textureMode === 'color' ? 'is-active' : ''}
             onClick={() => setTextureMode('color')}
           >
-            颜色图
+            {t('颜色图')}
           </button>
           <button
             type="button"
             className={textureMode === 'normal' ? 'is-active' : ''}
             onClick={() => setTextureMode('normal')}
           >
-            法线图
+            {t('法线图')}
           </button>
         </div>
       </div>

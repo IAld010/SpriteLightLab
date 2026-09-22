@@ -1,5 +1,6 @@
-﻿import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
+import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
 import { resolveFrameAlignment } from '../domain/alignment'
+import { t } from '../i18n'
 
 function imageSize(
   bundle: NonNullable<ReturnType<typeof useEditorStore.getState>['bundle']>,
@@ -34,7 +35,7 @@ export function AnchorCalibrationPanel() {
   const applyPresetToAll = useEditorStore((state) => state.applyAnchorPresetToAll)
 
   if (!bundle || !currentFrame || !action) {
-    return <div className="empty-list">导入素材后启用锚点校准。</div>
+    return <div className="empty-list">{t('导入素材后启用锚点校准。')}</div>
   }
 
   const size = imageSize(bundle, currentFrame.id)
@@ -58,24 +59,24 @@ export function AnchorCalibrationPanel() {
         <div className="section-title-row">
           <div>
             <div className="eyebrow">Sprite Alignment</div>
-            <strong className="panel-title">锚点校准</strong>
+            <strong className="panel-title">{t('锚点校准')}</strong>
           </div>
           <button
             type="button"
             className={`mini-button ${enabled ? 'danger' : ''}`}
             onClick={() => setEnabled(!enabled)}
           >
-            {enabled ? '退出校准' : '开始校准'}
+            {enabled ? t('退出校准') : t('开始校准')}
           </button>
         </div>
         <p className="field-help">
-          校准模式下图片固定在原图像素坐标中，只有十字准线和坐标输入会改变锚点。
+          {t('校准模式下图片固定在原图像素坐标中，只有十字准线和坐标输入会改变锚点。')}
         </p>
       </section>
 
       <section className="inspector-section">
         <div className="section-title-row">
-          <strong>当前帧</strong>
+          <strong>{t('当前帧')}</strong>
           <span>{size.width} × {size.height} px</span>
         </div>
         <label className="field">
@@ -93,9 +94,9 @@ export function AnchorCalibrationPanel() {
         </label>
         <div className="anchor-number-grid">
           <label>
-            <span>锚点 X</span>
+            <span>{t('锚点 X')}</span>
             <input
-              aria-label="锚点 X"
+              aria-label={t('锚点 X')}
               type="number"
               step="0.5"
               value={alignment.pivotX}
@@ -103,9 +104,9 @@ export function AnchorCalibrationPanel() {
             />
           </label>
           <label>
-            <span>锚点 Y</span>
+            <span>{t('锚点 Y')}</span>
             <input
-              aria-label="锚点 Y"
+              aria-label={t('锚点 Y')}
               type="number"
               step="0.5"
               value={alignment.pivotY}
@@ -113,9 +114,9 @@ export function AnchorCalibrationPanel() {
             />
           </label>
           <label>
-            <span>偏移 X</span>
+            <span>{t('偏移 X')}</span>
             <input
-              aria-label="偏移 X"
+              aria-label={t('偏移 X')}
               type="number"
               step="1"
               value={alignment.offsetX}
@@ -123,9 +124,9 @@ export function AnchorCalibrationPanel() {
             />
           </label>
           <label>
-            <span>偏移 Y</span>
+            <span>{t('偏移 Y')}</span>
             <input
-              aria-label="偏移 Y"
+              aria-label={t('偏移 Y')}
               type="number"
               step="1"
               value={alignment.offsetY}
@@ -135,16 +136,16 @@ export function AnchorCalibrationPanel() {
         </div>
         <div className="anchor-button-row">
           <button type="button" className="mini-button" onClick={() => applyPresetToAll('bottom-center')}>
-            全部脚底中心
+            {t('全部脚底中心')}
           </button>
           <button type="button" className="mini-button" onClick={() => applyPresetToAll('center')}>
-            全部图片中心
+            {t('全部图片中心')}
           </button>
         </div>
       </section>
 
       <section className="inspector-section">
-        <strong>校准显示</strong>
+        <strong>{t('校准显示')}</strong>
         <div className="anchor-option-row">
           <label className="checkbox-row">
             <input
@@ -152,7 +153,7 @@ export function AnchorCalibrationPanel() {
               checked={gridVisible}
               onChange={(event) => setGridVisible(event.target.checked)}
             />
-            显示逐像素网格
+            {t('显示逐像素网格')}
           </label>
           <label className="checkbox-row">
             <input
@@ -160,15 +161,15 @@ export function AnchorCalibrationPanel() {
               checked={onionSkin}
               onChange={(event) => setOnionSkin(event.target.checked)}
             />
-            显示洋葱皮
+            {t('显示洋葱皮')}
           </label>
         </div>
         <label className="field">
-          <span>吸附方式</span>
+          <span>{t('吸附方式')}</span>
           <select value={snapMode} onChange={(event) => setSnapMode(event.target.value as typeof snapMode)}>
-            <option value="pixel-center">像素中心</option>
-            <option value="pixel-boundary">整数边界</option>
-            <option value="free">自由坐标</option>
+            <option value="pixel-center">{t('像素中心')}</option>
+            <option value="pixel-boundary">{t('整数边界')}</option>
+            <option value="free">{t('自由坐标')}</option>
           </select>
         </label>
         <label className="anchor-zoom-slider">
@@ -188,19 +189,19 @@ export function AnchorCalibrationPanel() {
 
       <section className="inspector-section">
         <div className="section-title-row">
-          <strong>动作统一布局</strong>
-          <span>{actionAlignment ? '已启用' : '尚未启用'}</span>
+          <strong>{t('动作统一布局')}</strong>
+          <span>{actionAlignment ? t('已启用') : t('尚未启用')}</span>
         </div>
         {actionAlignment && (
           <div className="anchor-layout-summary">
-            <span>逻辑画布：{actionAlignment.canvasWidth} × {actionAlignment.canvasHeight} px</span>
-            <span>动作锚点：X {actionAlignment.anchorX} / Y {actionAlignment.anchorY}</span>
+            <span>{t('逻辑画布：{width} × {height} px', { width: actionAlignment.canvasWidth, height: actionAlignment.canvasHeight })}</span>
+            <span>{t('动作锚点：X {x} / Y {y}', { x: actionAlignment.anchorX, y: actionAlignment.anchorY })}</span>
           </div>
         )}
         <label className="field">
-          <span>动作统一缩放</span>
+          <span>{t('动作统一缩放')}</span>
           <input
-            aria-label="动作统一缩放"
+            aria-label={t('动作统一缩放')}
             type="number"
             min="0.1"
             max="4"

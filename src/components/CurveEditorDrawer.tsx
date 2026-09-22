@@ -12,6 +12,7 @@ import {
   type SpeedCurvePresetId,
 } from '../domain/animationTiming'
 import type { SpeedCurve, SpeedKeyframe } from '../domain/types'
+import { t } from '../i18n'
 
 const GRAPH_WIDTH = 760
 const GRAPH_HEIGHT = 252
@@ -158,15 +159,15 @@ export function CurveEditorDrawer({
   }
 
   return (
-    <aside className="curve-editor-drawer" aria-label="速度曲线编辑器">
+    <aside className="curve-editor-drawer" aria-label={t('速度曲线编辑器')}>
       <header className="curve-editor-header">
         <div>
-          <strong>速度曲线</strong>
-          <span>横轴为动作时间，纵轴为速度倍率；曲线越高，该段播放越快。</span>
+          <strong>{t('速度曲线')}</strong>
+          <span>{t('横轴为动作时间，纵轴为速度倍率；曲线越高，该段播放越快。')}</span>
         </div>
         <div className="curve-editor-actions">
           <label className="curve-select-field">
-            <span>预设</span>
+            <span>{t('预设')}</span>
             <select
               defaultValue=""
               onChange={(event) => {
@@ -177,12 +178,12 @@ export function CurveEditorDrawer({
                 event.currentTarget.value = ''
               }}
             >
-              <option value="">选择预设</option>
-              <option value="constant">匀速</option>
-              <option value="ease-in">缓入加速</option>
-              <option value="ease-out">缓出减速</option>
-              <option value="ease-in-out">缓入缓出</option>
-              <option value="impact">冲击节奏</option>
+              <option value="">{t('选择预设')}</option>
+              <option value="constant">{t('匀速')}</option>
+              <option value="ease-in">{t('缓入加速')}</option>
+              <option value="ease-out">{t('缓出减速')}</option>
+              <option value="ease-in-out">{t('缓入缓出')}</option>
+              <option value="impact">{t('冲击节奏')}</option>
             </select>
           </label>
           <label className="curve-checkbox">
@@ -193,7 +194,7 @@ export function CurveEditorDrawer({
                 onChange({ ...curve, preserveTotalDuration: event.target.checked })
               }
             />
-            保持总时长
+            {t('保持总时长')}
           </label>
           <button
             type="button"
@@ -203,10 +204,10 @@ export function CurveEditorDrawer({
               setSelectedKeyId(undefined)
             }}
           >
-            重置
+            {t('重置')}
           </button>
           <button type="button" className="mini-button" onClick={onClose}>
-            关闭
+            {t('关闭')}
           </button>
         </div>
       </header>
@@ -218,7 +219,7 @@ export function CurveEditorDrawer({
             className="curve-graph"
             viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`}
             role="img"
-            aria-label="速度曲线图，双击可添加关键帧"
+            aria-label={t('速度曲线图，双击可添加关键帧')}
             onDoubleClick={(event) => {
               if ((event.target as SVGElement).closest('[data-curve-control="true"]')) return
               const graph = graphRef.current
@@ -424,19 +425,19 @@ export function CurveEditorDrawer({
               )
             })}
           </svg>
-          <div className="curve-graph-hint">双击空白处添加关键帧；拖动菱形改时间和速度；拖动圆点调整切线。</div>
+          <div className="curve-graph-hint">{t('双击空白处添加关键帧；拖动菱形改时间和速度；拖动圆点调整切线。')}</div>
         </div>
 
         <aside className="curve-keyframe-inspector">
           <div className="curve-inspector-heading">
-            <strong>关键帧</strong>
-            <span>{curve.keyframes.length} 个</span>
+            <strong>{t('关键帧')}</strong>
+            <span>{t('{count} 个', { count: curve.keyframes.length })}</span>
           </div>
           {selectedKey ? (
             <>
               <div className="curve-number-grid">
                 <NumberField
-                  label="时间 %"
+                  label={t('时间 %')}
                   min={0}
                   max={100}
                   step={0.1}
@@ -447,7 +448,7 @@ export function CurveEditorDrawer({
                   }
                 />
                 <NumberField
-                  label="速度 ×"
+                  label={t('速度 ×')}
                   min={SPEED_CURVE_MIN}
                   max={SPEED_CURVE_MAX}
                   step={0.05}
@@ -457,7 +458,7 @@ export function CurveEditorDrawer({
                   }
                 />
                 <NumberField
-                  label="入切线"
+                  label={t('入切线')}
                   min={-SPEED_CURVE_MAX * 4}
                   max={SPEED_CURVE_MAX * 4}
                   step={0.05}
@@ -468,7 +469,7 @@ export function CurveEditorDrawer({
                   }
                 />
                 <NumberField
-                  label="出切线"
+                  label={t('出切线')}
                   min={-SPEED_CURVE_MAX * 4}
                   max={SPEED_CURVE_MAX * 4}
                   step={0.05}
@@ -480,7 +481,7 @@ export function CurveEditorDrawer({
                 />
               </div>
               <label className="field compact-field">
-                <span>关键帧插值</span>
+                <span>{t('关键帧插值')}</span>
                 <select
                   value={selectedKey.interpolation}
                   onChange={(event) =>
@@ -491,9 +492,9 @@ export function CurveEditorDrawer({
                     )
                   }
                 >
-                  <option value="smooth">平滑</option>
-                  <option value="linear">线性</option>
-                  <option value="stepped">阶梯</option>
+                  <option value="smooth">{t('平滑')}</option>
+                  <option value="linear">{t('线性')}</option>
+                  <option value="stepped">{t('阶梯')}</option>
                 </select>
               </label>
               <button
@@ -505,15 +506,15 @@ export function CurveEditorDrawer({
                   setSelectedKeyId(undefined)
                 }}
               >
-                删除当前关键帧
+                {t('删除当前关键帧')}
               </button>
             </>
           ) : (
-            <p className="field-help">选择一个关键帧后可编辑精确数值。</p>
+            <p className="field-help">{t('选择一个关键帧后可编辑精确数值。')}</p>
           )}
           <div className="curve-summary-card">
-            <strong>{curve.preserveTotalDuration ? '保持总时长' : '允许总时长变化'}</strong>
-            <span>帧格中的时长和速度倍率会实时更新。</span>
+            <strong>{curve.preserveTotalDuration ? t('保持总时长') : t('允许总时长变化')}</strong>
+            <span>{t('帧格中的时长和速度倍率会实时更新。')}</span>
           </div>
         </aside>
       </div>
