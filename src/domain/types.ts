@@ -176,7 +176,7 @@ export interface EditorSettings {
   panY: number
 }
 export type PaletteMode = 'indexed' | 'fullcolor'
-export type LightType = 'directional'
+export type LightType = 'directional' | 'point' | 'spot'
 
 export interface PaletteEntry {
   source: string
@@ -215,7 +215,21 @@ export interface LightSource {
   enabled: boolean
   color: string
   intensity: number
+  /**
+   * Position inside the checkerboard preview area, normalized to 0..1.
+   * Used by point and spot lights.
+   */
+  x: number
+  y: number
   direction: number
+  /** Radius relative to the checkerboard area width. */
+  radius: number
+  /** Quadratic attenuation coefficient inspired by PixiJS Lights. */
+  falloff: number
+  /** Full spotlight cone angle in degrees. */
+  coneAngle: number
+  /** 0 = hard edge, 1 = fully soft edge. */
+  softness: number
 }
 export interface LightingState {
   ambientColor: string

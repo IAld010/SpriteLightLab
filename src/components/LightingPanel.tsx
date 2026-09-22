@@ -1,5 +1,6 @@
 import { useEditorStore } from '../store/editorStore'
 import { useProjectStore } from '../store/projectStore'
+import type { LightType } from '../domain/types'
 
 export function LightingPanel() {
   const bundle = useEditorStore((state) => state.bundle)
@@ -103,14 +104,17 @@ export function LightingPanel() {
           <span>{lighting.lights.length} / 32</span>
         </div>
         <div className="add-light-row">
-          <button
-            type="button"
-            className="mini-button"
-            disabled={lighting.lights.length >= 32}
-            onClick={() => addLight('directional')}
-          >
-            + 方向光
-          </button>
+          {(['directional', 'point', 'spot'] as LightType[]).map((type) => (
+            <button
+              type="button"
+              className="mini-button"
+              key={type}
+              disabled={lighting.lights.length >= 32}
+              onClick={() => addLight(type)}
+            >
+              + {type === 'directional' ? '方向光' : type === 'point' ? '点光' : '聚光'}
+            </button>
+          ))}
         </div>
         <div className="light-list">
           {lighting.lights.map((light) => (
@@ -121,7 +125,7 @@ export function LightingPanel() {
               <button type="button" className="light-main" onClick={() => selectLight(light.id)}>
                 <span className="color-chip" style={{ background: light.color }} />
                 <span>{light.name}</span>
-                <small>方向光</small>
+                <small>{light.type === 'directional' ? '方向光' : light.type === 'point' ? '点光' : '聚光'}</small>
               </button>
               <div className="light-row-actions">
                 <input
@@ -171,14 +175,74 @@ export function LightingPanel() {
             <output>{selectedLight.intensity.toFixed(2)}</output>
           </div>
 
-          <RangeField
-            label="方向角"
-            min={0}
-            max={360}
-            step={1}
-            value={selectedLight.direction}
-            onChange={(direction) => updateLight(selectedLight.id, { direction })}
-          />
+          {selectedLight.type !== 'point' && (
+            <RangeField
+              label="方向角"
+              min={0}
+              max={360}
+              step={1}
+              value={selectedLight.direction}
+              onChange={(direction) => updateLight(selectedLight.id, { direction })}
+            />
+          )}
+
+          {selectedLight.type !== 'directional' && (
+            <>
+              <RangeField
+                label="棋盘 X"
+                min={0}
+                max={1}
+                step={0.005}
+                value={selectedLight.x}
+                onChange={(x) => updateLight(selectedLight.id, { x })}
+              />
+              <RangeField
+                label="棋盘 Y"
+                min={0}
+                max={1}
+                step={0.005}
+                value={selectedLight.y}
+                onChange={(y) => updateLight(selectedLight.id, { y })}
+              />
+              <RangeField
+                label="作用半径"
+                min={0.05}
+                max={2}
+                step={0.01}
+                value={selectedLight.radius}
+                onChange={(radius) => updateLight(selectedLight.id, { radius })}
+              />
+              <RangeField
+                label="二次衰减"
+                min={0.1}
+                max={40}
+                step={0.1}
+                value={selectedLight.falloff}
+                onChange={(falloff) => updateLight(selectedLight.id, { falloff })}
+              />
+            </>
+          )}
+
+          {selectedLight.type === 'spot' && (
+            <>
+              <RangeField
+                label="聚光角度"
+                min={1}
+                max={179}
+                step={1}
+                value={selectedLight.coneAngle}
+                onChange={(coneAngle) => updateLight(selectedLight.id, { coneAngle })}
+              />
+              <RangeField
+                label="边缘柔化"
+                min={0}
+                max={1}
+                step={0.01}
+                value={selectedLight.softness}
+                onChange={(softness) => updateLight(selectedLight.id, { softness })}
+              />
+            </>
+          )}
         </section>
       )}
 

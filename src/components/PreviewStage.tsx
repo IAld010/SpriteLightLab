@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { LightOverlay } from './LightOverlay'
 import type { PreviewBackground, PreviewTextureMode } from '../domain/types'
 import { PreviewRenderer } from '../renderer/PreviewRenderer'
 import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
@@ -158,7 +159,7 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
         data-background={background}
         aria-label={'\u5b9e\u65f6\u9884\u89c8'}
         onPointerDown={(event) => {
-          if (event.button !== 0) {
+          if (event.button !== 0 || (event.target as HTMLElement).closest('.light-handle')) {
             return
           }
           event.currentTarget.setPointerCapture(event.pointerId)
@@ -206,6 +207,7 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
           </small>
         </div>
       )}
+      <LightOverlay />
       <div className="canvas-corner-label">
         {textureMode === 'normal'
           ? '\u6cd5\u7ebf\u56fe\u9884\u89c8'

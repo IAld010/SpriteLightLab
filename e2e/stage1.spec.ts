@@ -681,6 +681,139 @@ test('specular strength changes the rendered lighting output', async ({ page }) 
   })
 })
 
+test('point and spot lights use the checkerboard handle as their exact emission origin', async ({ page }) => {
+  await page.goto('/')
+  const generated = await page.evaluate(() => {
+    const make = (r: number, g: number, b: number) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 128
+      canvas.height = 128
+      const context = canvas.getContext('2d')!
+      context.fillStyle = `rgb(${r},${g},${b})`
+      context.fillRect(0, 0, 128, 128)
+      return canvas.toDataURL('image/png').split(',')[1]
+    }
+    return { color: make(255, 255, 255), normal: make(128, 128, 255) }
+  })
+
+  await page.locator('.toolbar input[type="file"]').nth(1).setInputFiles([
+    { name: 'light-color.png', mimeType: 'image/png', buffer: Buffer.from(generated.color, 'base64') },
+    { name: 'light-color_n.png', mimeType: 'image/png', buffer: Buffer.from(generated.normal, 'base64') },
+  ])
+  await page.getByTestId('confirm-manual-match').click()
+  await page.locator('.inspector-tabs-four button').nth(1).click()
+
+  const lightRows = page.locator('.light-row')
+  await lightRows.nth(0).locator('input[type="checkbox"]').uncheck()
+  await lightRows.nth(1).locator('.light-main').click()
+  let ranges = page.locator('.light-editor .range-field input[type="range"]')
+  await ranges.nth(0).fill('0.5')
+  await ranges.nth(1).fill('0.5')
+  await ranges.nth(2).fill('1')
+  await ranges.nth(3).fill('20')
+  await page.locator('.light-editor .color-setting-row input[type="range"]').first().fill('0.35')
+  await page.waitForTimeout(350)
+
+  const pointAlignment = await page.locator('.preview-canvas-host').evaluate(async (host) => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    const canvas = host.querySelector('canvas')!
+    const handle = host.parentElement!.querySelector('.light-position-point .light-handle') as HTMLElement
+    const output = document.createElement('canvas')
+    output.width = canvas.width
+    output.height = canvas.height
+    const context = output.getContext('2d')!
+    context.drawImage(canvas, 0, 0)
+    const pixels = context.getImageData(0, 0, output.width, output.height).data
+    const luminances = new Float32Array(output.width * output.height)
+    let maximum = -1
+    for (let y = 0; y < output.height; y += 1) {
+      for (let x = 0; x < output.width; x += 1) {
+        const offset = y * output.width + x
+        const index = offset * 4
+        const luminance = pixels[index + 3] < 8 ? -1 : pixels[index] * 0.2126 + pixels[index + 1] * 0.7152 + pixels[index + 2] * 0.0722
+        luminances[offset] = luminance
+        maximum = Math.max(maximum, luminance)
+      }
+    }
+    let sumX = 0
+    let sumY = 0
+    let count = 0
+    for (let y = 0; y < output.height; y += 1) {
+      for (let x = 0; x < output.width; x += 1) {
+        if (luminances[y * output.width + x] >= maximum - 0.05) {
+          sumX += x
+          sumY += y
+          count += 1
+        }
+      }
+    }
+    const hostBounds = host.getBoundingClientRect()
+    const handleBounds = handle.getBoundingClientRect()
+    const scaleX = canvas.width / hostBounds.width
+    const scaleY = canvas.height / hostBounds.height
+    return {
+      centroidX: sumX / count,
+      centroidY: sumY / count,
+      handleX: (handleBounds.left + handleBounds.width / 2 - hostBounds.left) * scaleX,
+      handleY: (handleBounds.top + handleBounds.height / 2 - hostBounds.top) * scaleY,
+    }
+  })
+
+  expect(Math.abs(pointAlignment.centroidX - pointAlignment.handleX)).toBeLessThan(2)
+  expect(Math.abs(pointAlignment.centroidY - pointAlignment.handleY)).toBeLessThan(2)
+
+  await page.locator('.add-light-row .mini-button').nth(2).click()
+  await lightRows.nth(1).locator('input[type="checkbox"]').uncheck()
+  await lightRows.nth(2).locator('.light-main').click()
+  ranges = page.locator('.light-editor .range-field input[type="range"]')
+  await ranges.nth(0).fill('0')
+  await ranges.nth(1).fill('0.5')
+  await ranges.nth(2).fill('0.5')
+  await ranges.nth(3).fill('1')
+  await ranges.nth(4).fill('20')
+  await ranges.nth(5).fill('60')
+  await ranges.nth(6).fill('0')
+  await page.locator('.light-editor .color-setting-row input[type="range"]').first().fill('0.35')
+  await page.waitForTimeout(350)
+
+  const coneBias = await page.locator('.preview-canvas-host').evaluate(async (host) => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    const canvas = host.querySelector('canvas')!
+    const output = document.createElement('canvas')
+    output.width = canvas.width
+    output.height = canvas.height
+    const context = output.getContext('2d')!
+    context.drawImage(canvas, 0, 0)
+    const pixels = context.getImageData(0, 0, output.width, output.height).data
+    let left = 0
+    let right = 0
+    let leftCount = 0
+    let rightCount = 0
+    for (let y = 0; y < output.height; y += 1) {
+      for (let x = 0; x < output.width; x += 1) {
+        const index = (y * output.width + x) * 4
+        if (pixels[index + 3] < 8) continue
+        const luminance = pixels[index] * 0.2126 + pixels[index + 1] * 0.7152 + pixels[index + 2] * 0.0722
+        if (x < output.width / 2) {
+          left += luminance
+          leftCount += 1
+        } else {
+          right += luminance
+          rightCount += 1
+        }
+      }
+    }
+    return { left: left / Math.max(1, leftCount), right: right / Math.max(1, rightCount) }
+  })
+
+  expect(coneBias.right).toBeGreaterThan(coneBias.left)
+  const outputDirectory = process.env.STAGE1_OUTPUT_DIR ?? path.join(process.cwd(), 'test-results')
+  await mkdir(outputDirectory, { recursive: true })
+  await page.screenshot({
+    path: path.join(outputDirectory, 'sprite-light-lab-point-spot.png'),
+    fullPage: true,
+  })
+})
 test('anchor calibration aligns 64x64, 64x128 and 128x128 frames at one scale', async ({ page }) => {
   await page.goto('/')
   const generated = await page.evaluate(() => {

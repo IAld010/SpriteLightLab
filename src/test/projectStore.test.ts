@@ -47,7 +47,7 @@ describe('project store', () => {
     useProjectStore.getState().resetProjectState()
 
     expect(useProjectStore.getState().projectName).toBe('未命名精灵项目')
-    expect(useProjectStore.getState().lighting.lights).toHaveLength(1)
+    expect(useProjectStore.getState().lighting.lights).toHaveLength(2)
     expect(useProjectStore.getState().palettePresets).toHaveLength(1)
     expect(useProjectStore.getState().past).toHaveLength(0)
   })

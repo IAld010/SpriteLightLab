@@ -1834,6 +1834,82 @@ img {
   font-size: 8px;
 }
 
+.light-overlay {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.light-position {
+  position: absolute;
+  width: 0;
+  height: 0;
+  color: #ffffff;
+}
+
+.point-light-radius {
+  position: absolute;
+  top: 0;
+  left: 0;
+  aspect-ratio: 1;
+  border: 1px dashed currentColor;
+  border-radius: 50%;
+  opacity: 0.28;
+  transform: translate(-50%, -50%);
+}
+
+.spot-cone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: auto;
+  overflow: visible;
+  fill: currentColor;
+  opacity: 0.12;
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+
+.light-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  color: currentColor;
+  background: rgba(8, 12, 19, 0.52);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.light-position.is-selected .light-handle {
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, currentColor 35%, transparent),
+    0 0 20px color-mix(in srgb, currentColor 65%, transparent);
+}
+
+.light-handle:active {
+  cursor: grabbing;
+}
+
+.light-core {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
 .light-editor .range-field {
   margin-top: 8px;
 }

@@ -286,12 +286,18 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       const count = get().lighting.lights.length + 1
       const light: LightSource = {
         id: makeId('light'),
-        name: `方向光 ${count}`,
+        name: type === 'directional' ? `方向光 ${count}` : type === 'point' ? `点光 ${count}` : `聚光 ${count}`,
         type,
         enabled: true,
-        color: '#ffffff',
+        color: type === 'point' ? '#ffb46b' : '#ffffff',
         intensity: 1,
+        x: 0.5,
+        y: 0.5,
         direction: 225,
+        radius: type === 'point' ? 0.68 : 0.55,
+        falloff: 20,
+        coneAngle: 52,
+        softness: 0.35,
       }
       set((state) => ({
         lighting: {

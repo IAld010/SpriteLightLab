@@ -1,4 +1,5 @@
 import { buildPaletteLut, hexToRgb } from '../domain/palette'
+import { lightPointToObject, type ObjectRect } from './lightingGeometry'
 import type {
   ColorAdjustments,
   ColorRule,
@@ -21,6 +22,7 @@ export interface CpuRenderInput {
   palette: PalettePreset
   lighting: LightingState
   preferences: RenderPreferences
+  objectRect: ObjectRect
   debugNormal?: boolean
 }
 
@@ -115,16 +117,67 @@ export function decodeNormalChannel(value: number): number {
   const decoded = (value / 255) * 2 - 1
   return Math.abs(decoded) < 0.01 ? 0 : decoded
 }
+function smoothstep(edge0: number, edge1: number, value: number): number {
+  if (edge1 <= edge0) return value <= edge0 ? 0 : 1
+  const t = clamp((value - edge0) / (edge1 - edge0))
+  return t * t * (3 - 2 * t)
+}
+
 export function lightContribution(
+  x: number,
+  y: number,
   normalX: number,
   normalY: number,
   normalZ: number,
+  frameAspect: number,
   light: LightSource,
+  objectRect: ObjectRect,
 ): LightSample {
-  const radians = (light.direction * Math.PI) / 180
-  const directionX = -Math.cos(radians)
-  const directionY = -Math.sin(radians)
-  const surfaceZ = 0.78
+  const aspect = Math.max(frameAspect, 0.0001)
+  let directionX = 0
+  let directionY = 0
+  let attenuation = 1
+  let cone = 1
+
+  if (light.type === 'directional') {
+    const radians = (light.direction * Math.PI) / 180
+    directionX = -Math.cos(radians)
+    directionY = -Math.sin(radians)
+  } else {
+    const [lightX, lightY] = lightPointToObject(light.x, light.y, objectRect)
+    const deltaX = lightX - x
+    const deltaY = (lightY - y) / aspect
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+    const radius = Math.max(light.radius, 0.0001)
+    if (distance > radius) {
+      return { diffuse: 0, specular: 0 }
+    }
+
+    const distanceRatio = distance / radius
+    attenuation =
+      1 /
+      (0.75 +
+        3 * distanceRatio +
+        Math.max(light.falloff, 0.1) * distanceRatio * distanceRatio)
+
+    directionX = -deltaX
+    directionY = -deltaY
+
+    if (light.type === 'spot' && distance > 0.0001) {
+      const radians = (light.direction * Math.PI) / 180
+      const rayX = Math.cos(radians)
+      const rayY = Math.sin(radians)
+      const pixelDirectionX = -deltaX / distance
+      const pixelDirectionY = -deltaY / distance
+      const dot = clamp(rayX * pixelDirectionX + rayY * pixelDirectionY, -1, 1)
+      const angle = Math.acos(dot)
+      const halfAngle = (light.coneAngle * Math.PI) / 360
+      const softAngle = halfAngle * (1 - clamp(light.softness))
+      cone = angle >= halfAngle ? 0 : angle <= softAngle ? 1 : 1 - smoothstep(softAngle, halfAngle, angle)
+    }
+  }
+
+  const surfaceZ = light.type === 'directional' ? 0.78 : 0.075
   const directionLength = Math.sqrt(
     directionX * directionX + directionY * directionY + surfaceZ * surfaceZ,
   )
@@ -132,7 +185,7 @@ export function lightContribution(
   const lightY = directionY / directionLength
   const lightZ = surfaceZ / directionLength
   const diffuse = Math.max(normalX * lightX + normalY * lightY + normalZ * lightZ, 0)
-  const contribution = light.intensity * diffuse
+  const contribution = light.intensity * diffuse * attenuation * cone
   if (contribution <= 0) {
     return { diffuse: 0, specular: 0 }
   }
@@ -148,7 +201,7 @@ export function lightContribution(
   )
   return {
     diffuse: contribution,
-    specular: specularDot ** 32 * light.intensity,
+    specular: specularDot ** 32 * light.intensity * attenuation * cone,
   }
 }
 export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
@@ -230,7 +283,16 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
 
         for (const light of input.lighting.lights) {
           if (!light.enabled) continue
-          const sample = lightContribution(normalX, normalY, normalZ, light)
+          const sample = lightContribution(
+            (x + 0.5) / outputWidth,
+            (y + 0.5) / outputHeight,
+            normalX,
+            normalY,
+            normalZ,
+            outputWidth / outputHeight,
+            light,
+            input.objectRect,
+          )
           if (sample.diffuse <= 0) continue
           const lightColor = hexToRgb(light.color)
           const linearRed = toLinear(lightColor.r / 255)

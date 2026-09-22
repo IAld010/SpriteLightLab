@@ -14,6 +14,7 @@ import type {
   RuntimeImage,
 } from '../domain/types'
 import { renderCpuSprite } from './CpuSpriteRenderer'
+import { objectRectFromSpriteAnchor } from './lightingGeometry'
 import { computeAlignedSpriteScale } from './previewScale'
 import { registerPreviewExporter, unregisterPreviewExporter, type PreviewExporter } from './previewExportRegistry'
 
@@ -54,6 +55,8 @@ export class PreviewRenderer implements PreviewExporter {
   private displayScale = 1
   private displayX = 0
   private displayY = 0
+  private viewportWidth = 1
+  private viewportHeight = 1
   private currentToken = 0
   private resizeHandler = () => {
     this.layout()
@@ -264,14 +267,30 @@ export class PreviewRenderer implements PreviewExporter {
         specularStrength: 0.35,
         pixelPerfect: true,
       },
+      objectRect: this.objectRect(),
       debugNormal: this.textureMode === 'normal',
     })
+  }
+
+  private objectRect(): [number, number, number, number] {
+    const spriteWidth = Math.max(1, this.sprite?.texture.width ?? 1) * Math.max(this.displayScale, 0.0001)
+    const spriteHeight = Math.max(1, this.sprite?.texture.height ?? 1) * Math.max(this.displayScale, 0.0001)
+    return objectRectFromSpriteAnchor(
+      this.displayX,
+      this.displayY,
+      spriteWidth,
+      spriteHeight,
+      this.viewportWidth,
+      this.viewportHeight,
+    )
   }
 
   private layout(): void {
     if (!this.app || !this.sprite) return
     const width = this.app.renderer.width / this.app.renderer.resolution
     const height = this.app.renderer.height / this.app.renderer.resolution
+    this.viewportWidth = width
+    this.viewportHeight = height
     const textureWidth = Math.max(1, this.sprite.texture.width)
     const textureHeight = Math.max(1, this.sprite.texture.height)
 
