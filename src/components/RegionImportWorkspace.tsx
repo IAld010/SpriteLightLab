@@ -235,18 +235,14 @@ export function RegionImportWorkspace({
 
   const updateRegion = (patch: Partial<Rect>) => {
     if (!current || !colorSize) return
-    const next = {
-      x: Math.max(0, Math.round(patch.x ?? current.x)),
-      y: Math.max(0, Math.round(patch.y ?? current.y)),
-      width: Math.max(1, Math.round(patch.width ?? current.width)),
-      height: Math.max(1, Math.round(patch.height ?? current.height)),
-    }
-    next.width = Math.min(next.width, colorSize.width - next.x)
-    next.height = Math.min(next.height, colorSize.height - next.y)
+    const x = Math.min(colorSize.width - 1, Math.max(0, Math.round(patch.x ?? current.x)))
+    const y = Math.min(colorSize.height - 1, Math.max(0, Math.round(patch.y ?? current.y)))
+    const width = Math.min(colorSize.width - x, Math.max(1, Math.round(patch.width ?? current.width)))
+    const height = Math.min(colorSize.height - y, Math.max(1, Math.round(patch.height ?? current.height)))
+    const next = { x, y, width, height }
     const regions = config.regions.map((rect, index) => index === selectedIndex ? next : rect)
     onChange({ ...config, regions })
   }
-
   const addRegion = () => {
     if (!colorSize) return
     const width = Math.min(64, colorSize.width)
@@ -287,22 +283,22 @@ export function RegionImportWorkspace({
   }
 
   const sortRegions = () => {
-    const regions = config.frameOrder === 'column-major'
-      ? [...config.regions].sort((left, right) => left.x === right.x ? left.y - right.y : left.x - right.x)
-      : [...config.regions].sort((left, right) => left.y === right.y ? left.x - right.x : left.y - right.y)
-    onChange({ ...config, regions })
+    onChange({
+      ...config,
+      regions: sortRegionRectangles(config.regions, config.frameOrder),
+    })
   }
-
   return (
     <div className="region-import-workspace">
       <aside className="region-import-settings">
         <section className="inspector-section">
           <div className="section-title-row">
             <strong>自动检测参数</strong>
-            <button type="button" className="mini-button" onClick={() => void runDetection()}>
-              {detecting ? '检测中…' : '重新检测'}
+            <button type="button" className="mini-button" onClick={() => detecting ? cancelDetection() : void runDetection()}>
+              {detecting ? `取消检测 ${Math.round(detectionProgress * 100)}%` : '重新检测'}
             </button>
           </div>
+          <p className="field-help">自动检测最多处理 1600 万像素；超大图片会提示改用手动区域。</p>
           <RangeField
             label="透明阈值"
             min={0}
@@ -371,10 +367,10 @@ export function RegionImportWorkspace({
           </div>
           {current && (
             <div className="grid-number-grid region-number-grid">
-              <NumberField label="X" value={current.x} onChange={(x) => updateRegion({ x })} />
-              <NumberField label="Y" value={current.y} onChange={(y) => updateRegion({ y })} />
-              <NumberField label="宽度" value={current.width} min={1} onChange={(width) => updateRegion({ width })} />
-              <NumberField label="高度" value={current.height} min={1} onChange={(height) => updateRegion({ height })} />
+              <NumberField label="X" max={colorSize ? colorSize.width - 1 : undefined} value={current.x} onChange={(x) => updateRegion({ x })} />
+              <NumberField label="Y" max={colorSize ? colorSize.height - 1 : undefined} value={current.y} onChange={(y) => updateRegion({ y })} />
+              <NumberField label="宽度" min={1} max={colorSize ? colorSize.width - current.x : undefined} value={current.width} onChange={(width) => updateRegion({ width })} />
+              <NumberField label="高度" min={1} max={colorSize ? colorSize.height - current.y : undefined} value={current.height} onChange={(height) => updateRegion({ height })} />
             </div>
           )}
         </section>

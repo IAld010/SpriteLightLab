@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { createRegionBundle, detectRegionsFromImageData } from '../domain/regionImport'
+import {
+  createRegionBundle,
+  detectRegionsFromImageData,
+  detectRegionsFromImageDataAsync,
+  MAX_REGION_DETECTION_PIXELS,
+  sortRegionRectangles,
+} from '../domain/regionImport'
 
 function createImageData(width: number, height: number): ImageData {
   return { width, height, data: new Uint8ClampedArray(width * height * 4), colorSpace: 'srgb' } as ImageData
@@ -28,6 +34,58 @@ const baseOptions = {
   padding: 0,
 }
 
+describe('region ordering and limits', () => {
+  it('sorts differently sized frames into stable reading rows', () => {
+    const rectangles = [
+      { x: 70, y: 45, width: 18, height: 20 },
+      { x: 0, y: 40, width: 26, height: 12 },
+      { x: 72, y: 2, width: 20, height: 10 },
+      { x: 0, y: 0, width: 30, height: 30 },
+    ]
+
+    expect(sortRegionRectangles(rectangles, 'row-major')).toEqual([
+      rectangles[3],
+      rectangles[2],
+      rectangles[1],
+      rectangles[0],
+    ])
+  })
+
+  it('supports explicit column-major sorting', () => {
+    const rectangles = [
+      { x: 40, y: 0, width: 10, height: 10 },
+      { x: 0, y: 30, width: 10, height: 10 },
+      { x: 0, y: 0, width: 10, height: 10 },
+      { x: 40, y: 30, width: 10, height: 10 },
+    ]
+
+    expect(sortRegionRectangles(rectangles, 'column-major')).toEqual([
+      rectangles[2],
+      rectangles[1],
+      rectangles[0],
+      rectangles[3],
+    ])
+  })
+
+  it('rejects images above the automatic detection pixel limit', () => {
+    const image = createImageData(1, 1)
+    Object.defineProperty(image, 'width', { value: 5000 })
+    Object.defineProperty(image, 'height', { value: 4000 })
+
+    expect(() => detectRegionsFromImageData(image, baseOptions)).toThrow('超过自动检测上限')
+    expect(MAX_REGION_DETECTION_PIXELS).toBe(16_000_000)
+  })
+
+  it('supports cancellation before async detection starts', async () => {
+    const image = createImageData(16, 16)
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      detectRegionsFromImageDataAsync(image, baseOptions, controller.signal),
+    ).rejects.toMatchObject({ name: 'AbortError' })
+  })
+})
 describe('region import detection', () => {
   it('detects unrelated rectangular frames at arbitrary positions', () => {
     const image = createImageData(64, 64)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   createGridRects,
   readGridImageSize,
@@ -10,6 +10,7 @@ import { DEFAULT_REGION_CONFIG, validateRegionConfig } from '../domain/regionImp
 import { RegionImportWorkspace } from './RegionImportWorkspace'
 import { useEditorStore } from '../store/editorStore'
 import { ImportRulesPanel } from './ImportRulesPanel'
+import { useObjectUrl } from '../hooks/useObjectUrl'
 
 interface GridImportDialogProps {
   onClose: () => void
@@ -25,19 +26,6 @@ const DEFAULT_GRID: GridImportConfig = {
   spacingX: 0,
   spacingY: 0,
   frameOrder: 'row-major',
-}
-
-function useObjectUrl(file?: File): string | undefined {
-  const url = useMemo(() => (file ? URL.createObjectURL(file) : undefined), [file])
-  useEffect(
-    () => () => {
-      if (url) {
-        URL.revokeObjectURL(url)
-      }
-    },
-    [url],
-  )
-  return url
 }
 
 function defaultGridFor(size: GridImageSize): GridImportConfig {

@@ -41,7 +41,7 @@ test('stage 1 imports the demo, groups clips and supports frame interaction', as
 
   await chooseDemo(page, 0)
   await expect(page.locator('.action-item')).toHaveCount(2)
-  await expect(page.locator('.frame-item')).toHaveCount(4)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
   await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
   await expect(page.locator('.timeline-frame-cell').first()).toContainText('125ms')
   await expect(page.locator('.timeline-frame-cell img').first()).toBeVisible()
@@ -50,7 +50,7 @@ test('stage 1 imports the demo, groups clips and supports frame interaction', as
   const secondFrame = timelineFrames.nth(1)
   await secondFrame.click()
   await expect(secondFrame).toHaveClass(/is-active/)
-  await expect(page.locator('.frame-item').nth(1)).toHaveClass(/is-active/)
+  await expect(page.locator('.timeline-frame-cell').nth(1)).toHaveClass(/is-active/)
 
   await timelineFrames.first().focus()
   await page.keyboard.press('ArrowRight')
@@ -61,7 +61,7 @@ test('stage 1 imports the demo, groups clips and supports frame interaction', as
   await page.locator('.toolbar-settings .segmented button').nth(0).click()
 
   await page.locator('.action-item').nth(1).click()
-  await expect(page.locator('.frame-item')).toHaveCount(6)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(6)
   await expect(page.locator('.timeline-frame-cell')).toHaveCount(6)
 
   await page.locator('.inspector-tabs-four button').nth(2).click()
@@ -77,22 +77,32 @@ test('stage 1 imports the demo, groups clips and supports frame interaction', as
   })
 })
 
-test('bottom frame cells reorder and stay synchronized with the left frame navigator', async ({ page }) => {
+test('bottom frame cells reorder and stay synchronized with the right frame navigator', async ({ page }) => {
   await page.goto('/')
   await chooseDemo(page, 0)
 
-  const leftFrames = page.locator('.frame-item .frame-name')
-  await expect(leftFrames).toHaveCount(4)
-  const before = await leftFrames.evaluateAll((elements) => elements.map((element) => element.textContent ?? ''))
+  await page.locator('.inspector-tabs-five button').nth(2).click()
+  const rightFrames = page.locator('.frame-item .frame-name')
+  await expect(rightFrames).toHaveCount(4)
+  const before = await rightFrames.evaluateAll((elements) => elements.map((element) => element.textContent ?? ''))
   const timelineFrames = page.locator('.timeline-frame-cell')
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer())
   await timelineFrames.first().dispatchEvent('dragstart', { dataTransfer })
+  await timelineFrames.first().dispatchEvent('dragenter', { dataTransfer })
+  await expect(page.locator('.drop-overlay')).toHaveCount(0)
   await timelineFrames.nth(2).dispatchEvent('dragover', { dataTransfer })
   await timelineFrames.nth(2).dispatchEvent('drop', { dataTransfer })
   await timelineFrames.first().dispatchEvent('dragend', { dataTransfer })
 
-  await expect(leftFrames).toHaveText([before[1], before[2], before[0], before[3]])
+  await expect(rightFrames).toHaveText([before[1], before[2], before[0], before[3]])
   await expect(page.locator('.timeline-frame-cell').nth(2)).toHaveClass(/is-active/)
+
+  const outputDirectory = process.env.STAGE1_OUTPUT_DIR ?? path.join(process.cwd(), 'test-results')
+  await mkdir(outputDirectory, { recursive: true })
+  await page.screenshot({
+    path: path.join(outputDirectory, 'sprite-light-lab-right-frame-navigator.png'),
+    fullPage: true,
+  })
 })
 test('curve editor edits multi-key timing and restores it after reload', async ({ page }) => {
   await page.goto('/')
@@ -104,6 +114,13 @@ test('curve editor edits multi-key timing and restores it after reload', async (
   await page.locator('.curve-editor-toggle').click()
   const drawer = page.locator('.curve-editor-drawer')
   await expect(drawer).toBeVisible()
+  const textTransfer = await page.evaluateHandle(() => {
+    const transfer = new DataTransfer()
+    transfer.setData('text/plain', 'selected curve text')
+    return transfer
+  })
+  await drawer.dispatchEvent('dragenter', { dataTransfer: textTransfer })
+  await expect(page.locator('.drop-overlay')).toHaveCount(0)
   await expect(drawer.locator('.curve-main-path')).toHaveAttribute('d', /^M/)
   await expect(drawer.locator('.curve-keyframe')).toHaveCount(2)
 
@@ -157,6 +174,32 @@ test('curve editor edits multi-key timing and restores it after reload', async (
   await expect(page.locator('.curve-keyframe')).toHaveCount(4)
   await page.locator('.curve-keyframe').nth(2).click()
   await expect(page.locator('.curve-number-field input').nth(1)).toHaveValue('2.5')
+})
+
+test('drop overlay only accepts external file drags', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  const appShell = page.locator('.app-shell')
+  await expect(appShell).toHaveCSS('user-select', 'none')
+  await expect(page.locator('.toolbar-settings select').first()).toHaveCSS('user-select', 'text')
+
+  const textTransfer = await page.evaluateHandle(() => {
+    const transfer = new DataTransfer()
+    transfer.setData('text/plain', 'selected UI text')
+    return transfer
+  })
+  await appShell.dispatchEvent('dragenter', { dataTransfer: textTransfer })
+  await expect(page.locator('.drop-overlay')).toHaveCount(0)
+
+  const fileTransfer = await page.evaluateHandle(() => {
+    const transfer = new DataTransfer()
+    transfer.items.add(new File(['png'], 'external.png', { type: 'image/png' }))
+    return transfer
+  })
+  await appShell.dispatchEvent('dragenter', { dataTransfer: fileTransfer })
+  await expect(page.locator('.drop-overlay')).toBeVisible()
+  await appShell.dispatchEvent('dragleave', { dataTransfer: fileTransfer })
+  await expect(page.locator('.drop-overlay')).toHaveCount(0)
 })
 
 test('WebGPU backend initializes when the environment exposes it', async ({ page }) => {
@@ -261,7 +304,7 @@ test('bundled Defold diffuse/normal sample imports as one 16-frame walk clip', a
   await chooseDemo(page, 2)
   await expect(page.locator('.action-item')).toHaveCount(1)
   await expect(page.locator('.action-item')).toContainText('bopz_walk')
-  await expect(page.locator('.frame-item')).toHaveCount(16)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(16)
   await expect(page.locator('.pair-dot.pair-missing, .pair-dot.pair-mismatch')).toHaveCount(0)
   await expect(page.locator('.renderer-error')).toHaveCount(0)
 })
@@ -275,7 +318,7 @@ async function importAlignmentFixture(page: Page, colorFile: string, normalFile:
   await expect(page.getByTestId('manual-match-page')).toBeVisible()
   await expect(page.locator('.matching-column')).toHaveCount(1)
   await page.getByTestId('confirm-manual-match').click()
-  await expect(page.locator('.frame-item')).toHaveCount(1)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(1)
 }
 
 async function configureDirectionalLight(page: Page, direction: number) {
@@ -768,7 +811,7 @@ test('anchor calibration aligns 64x64, 64x128 and 128x128 frames at one scale', 
   ])
   await expect(page.locator('.matching-column')).toHaveCount(3)
   await page.getByTestId('confirm-manual-match').click()
-  await expect(page.locator('.frame-item')).toHaveCount(3)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(3)
   await expect(page.locator('.action-item')).toHaveCount(1)
 
   await page.locator('.inspector-tabs-five button').nth(4).click()
@@ -857,13 +900,13 @@ test('anchor calibration aligns 64x64, 64x128 and 128x128 frames at one scale', 
     return { width: maxX - minX + 1, height: maxY - minY + 1, bottom: maxY }
   })
 
-  await page.locator('.frame-item').nth(0).click()
+  await page.locator('.timeline-frame-cell').nth(0).click()
   await page.waitForTimeout(250)
   const idleBounds = await measureCanvasBounds()
-  await page.locator('.frame-item').nth(1).click()
+  await page.locator('.timeline-frame-cell').nth(1).click()
   await page.waitForTimeout(250)
   const tallBounds = await measureCanvasBounds()
-  await page.locator('.frame-item').nth(2).click()
+  await page.locator('.timeline-frame-cell').nth(2).click()
   await page.waitForTimeout(250)
   const wideBounds = await measureCanvasBounds()
 
@@ -875,7 +918,7 @@ test('anchor calibration aligns 64x64, 64x128 and 128x128 frames at one scale', 
 
   await page.waitForTimeout(900)
   await page.reload()
-  await expect(page.locator('.frame-item')).toHaveCount(3)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(3)
   await page.locator('.inspector-tabs-five button').nth(4).click()
   await expect(page.locator('.anchor-number-grid input').nth(0)).toHaveValue('32')
   await expect(page.locator('.anchor-number-grid input').nth(1)).toHaveValue('64')
@@ -942,14 +985,18 @@ test('non-grid region import auto-detects and supports manual rectangle editing'
   await page.locator('.region-action-grid button').nth(2).click()
   await expect(page.locator('.region-editor-box')).toHaveCount(2)
 
+  await xInput.fill('9999')
+  await expect(xInput).toHaveValue('127')
+  await expect(page.locator('.region-number-grid input').nth(2)).toHaveValue('1')
+
   await page.locator('.grid-import-footer .button-primary').click()
   await expect(page.getByTestId('grid-import-dialog')).toHaveCount(0)
   await expect(page.locator('.notice')).toContainText('区域导入完成：2 帧、1 个动作。')
-  await expect(page.locator('.frame-item')).toHaveCount(2)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(2)
   await expect(page.locator('.action-item')).toHaveCount(1)
   await page.waitForTimeout(900)
   await page.reload()
-  await expect(page.locator('.frame-item')).toHaveCount(2)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(2)
   await expect(page.locator('.action-item')).toHaveCount(1)
 })
 
@@ -980,11 +1027,11 @@ test('grid import slices aligned sheets and explains naming and size rules', asy
   await dialog.getByRole('button', { name: /确认导入 4 帧/ }).click()
 
   await expect(dialog).toHaveCount(0)
-  await expect(page.locator('.frame-item')).toHaveCount(4)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
   await expect(page.locator('.action-item')).toHaveCount(1)
   await page.waitForTimeout(900)
   await page.reload()
-  await expect(page.locator('.frame-item')).toHaveCount(4)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
   await expect(page.locator('.action-item')).toHaveCount(1)
 })
 
@@ -1047,7 +1094,7 @@ test('manual matching page pairs images with different names by drag and drop', 
   await page.getByTestId('confirm-manual-match').click()
 
   await expect(page.getByTestId('manual-match-page')).toHaveCount(0)
-  await expect(page.locator('.frame-item')).toHaveCount(1)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(1)
   await page.locator('.inspector-tabs-four button').nth(2).click()
   await expect(page.locator('.inspector-content .field select').first()).not.toHaveValue('')
 })

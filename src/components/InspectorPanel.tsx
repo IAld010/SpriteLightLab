@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getCurrentFrame, useEditorStore } from '../store/editorStore'
 import { AnchorCalibrationPanel } from './AnchorCalibrationPanel'
+import { FrameNavigator } from './FrameNavigator'
 import { LightingPanel } from './LightingPanel'
 import { ProjectPanel } from './ProjectPanel'
 import { PalettePanel } from './PalettePanel'
@@ -78,6 +79,7 @@ export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanel
 
       {tab === 'frame' && (
         <div className="inspector-content">
+          <FrameNavigator />
           <section className="inspector-section">
             <div className="eyebrow">当前帧</div>
             <div className="selected-frame-card">

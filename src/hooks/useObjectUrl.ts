@@ -1,12 +1,34 @@
 import { useEffect, useState } from 'react'
 
 interface ObjectUrlEntry {
+  file: File
   url: string
   refs: number
   revokeTimer?: ReturnType<typeof setTimeout>
 }
 
 const entries = new WeakMap<File, ObjectUrlEntry>()
+const activeEntries = new Set<ObjectUrlEntry>()
+
+function revokeEntry(entry: ObjectUrlEntry): void {
+  if (entry.revokeTimer !== undefined) {
+    clearTimeout(entry.revokeTimer)
+    entry.revokeTimer = undefined
+  }
+  URL.revokeObjectURL(entry.url)
+  entries.delete(entry.file)
+  activeEntries.delete(entry)
+}
+
+export function revokeAllObjectUrls(): void {
+  for (const entry of [...activeEntries]) {
+    revokeEntry(entry)
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', revokeAllObjectUrls)
+}
 
 function acquireObjectUrl(file: File): string {
   const existing = entries.get(file)
@@ -20,10 +42,12 @@ function acquireObjectUrl(file: File): string {
   }
 
   const entry: ObjectUrlEntry = {
+    file,
     url: URL.createObjectURL(file),
     refs: 1,
   }
   entries.set(file, entry)
+  activeEntries.add(entry)
   return entry.url
 }
 
@@ -35,8 +59,7 @@ function releaseObjectUrl(file: File): void {
   entry.revokeTimer = setTimeout(() => {
     const current = entries.get(file)
     if (current !== entry || current.refs > 0) return
-    URL.revokeObjectURL(current.url)
-    entries.delete(file)
+    revokeEntry(current)
   }, 0)
 }
 

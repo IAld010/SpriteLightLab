@@ -24,6 +24,7 @@ import {
 import type { AssetBundle } from './domain/types'
 import { getSelectedAction, useEditorStore } from './store/editorStore'
 import { useProjectLibraryStore } from './store/projectLibraryStore'
+import { isExternalFileDrag } from './utils/dragAndDrop'
 import { useProjectStore } from './store/projectStore'
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -347,19 +348,26 @@ export default function App() {
     <div
       className="app-shell"
       onDragEnter={(event) => {
+        if (!isExternalFileDrag(event)) return
         event.preventDefault()
         setIsDragging(true)
       }}
-      onDragOver={(event) => event.preventDefault()}
+      onDragOver={(event) => {
+        if (isExternalFileDrag(event)) event.preventDefault()
+      }}
       onDragLeave={(event) => {
         if (event.currentTarget === event.target) {
           setIsDragging(false)
         }
       }}
       onDrop={(event) => {
+        if (!isExternalFileDrag(event)) return
         event.preventDefault()
         setIsDragging(false)
-        void prepareLocalImport(Array.from(event.dataTransfer.files))
+        const files = Array.from(event.dataTransfer.files)
+        if (files.length > 0) {
+          void prepareLocalImport(files)
+        }
       }}
     >
       <Toolbar

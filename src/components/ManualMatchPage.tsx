@@ -5,6 +5,7 @@ import {
   type MatchingRow,
 } from '../domain/manualMatching'
 import type { AssetBundle, PreviewFrame, RuntimeImage, TextureRef } from '../domain/types'
+import { markInternalDrag } from '../utils/dragAndDrop'
 import { ImportRulesPanel } from './ImportRulesPanel'
 
 interface ManualMatchPageProps {
@@ -171,7 +172,7 @@ export function ManualMatchPage({ bundle, onCancel, onConfirm }: ManualMatchPage
 
   const dragStart = (event: React.DragEvent, payload: DragPayload) => {
     dragging.current = payload
-    event.dataTransfer.effectAllowed = 'move'
+    markInternalDrag(event)
     event.dataTransfer.setData('application/x-sprite-light-match', JSON.stringify(payload))
     event.dataTransfer.setData('text/plain', JSON.stringify(payload))
   }

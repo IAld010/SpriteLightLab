@@ -3,6 +3,7 @@ import { computeFrameSchedule } from '../domain/animationTiming'
 import { CurveEditorDrawer } from './CurveEditorDrawer'
 import type { AssetBundle, PreviewFrame } from '../domain/types'
 import { useObjectUrl } from '../hooks/useObjectUrl'
+import { markInternalDrag } from '../utils/dragAndDrop'
 import { getSelectedAction, useEditorStore } from '../store/editorStore'
 
 const THUMBNAIL_WIDTH = 48
@@ -250,7 +251,7 @@ export function Timeline() {
                     selectRelativeFrame(frames.length - 1)
                   }
                 }}
-                onDragStart={() => setDraggedIndex(index)}
+                onDragStart={(event) => { markInternalDrag(event); setDraggedIndex(index) }}
                 onDragOver={(event) => {
                   event.preventDefault()
                   setDropIndex(index)
