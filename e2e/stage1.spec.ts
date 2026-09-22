@@ -42,10 +42,19 @@ test('stage 1 imports the demo, groups clips and supports frame interaction', as
   await chooseDemo(page, 0)
   await expect(page.locator('.action-item')).toHaveCount(2)
   await expect(page.locator('.frame-item')).toHaveCount(4)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
+  await expect(page.locator('.timeline-frame-cell').first()).toContainText('125ms')
+  await expect(page.locator('.timeline-frame-cell img').first()).toBeVisible()
 
-  const secondFrame = page.locator('.frame-item').nth(1)
+  const timelineFrames = page.locator('.timeline-frame-cell')
+  const secondFrame = timelineFrames.nth(1)
   await secondFrame.click()
   await expect(secondFrame).toHaveClass(/is-active/)
+  await expect(page.locator('.frame-item').nth(1)).toHaveClass(/is-active/)
+
+  await timelineFrames.first().focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(timelineFrames.nth(1)).toHaveClass(/is-active/)
 
   await page.locator('.toolbar-settings .segmented button').nth(1).click()
   await expect(page.locator('.canvas-corner-label')).toContainText('%')
@@ -53,6 +62,7 @@ test('stage 1 imports the demo, groups clips and supports frame interaction', as
 
   await page.locator('.action-item').nth(1).click()
   await expect(page.locator('.frame-item')).toHaveCount(6)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(6)
 
   await page.locator('.inspector-tabs-four button').nth(2).click()
   await page.locator('.inspector-content .field select').first().selectOption({ index: 1 })
@@ -65,6 +75,88 @@ test('stage 1 imports the demo, groups clips and supports frame interaction', as
     path: path.join(outputDirectory, 'sprite-light-lab-final.png'),
     fullPage: true,
   })
+})
+
+test('bottom frame cells reorder and stay synchronized with the left frame navigator', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+
+  const leftFrames = page.locator('.frame-item .frame-name')
+  await expect(leftFrames).toHaveCount(4)
+  const before = await leftFrames.evaluateAll((elements) => elements.map((element) => element.textContent ?? ''))
+  const timelineFrames = page.locator('.timeline-frame-cell')
+  const dataTransfer = await page.evaluateHandle(() => new DataTransfer())
+  await timelineFrames.first().dispatchEvent('dragstart', { dataTransfer })
+  await timelineFrames.nth(2).dispatchEvent('dragover', { dataTransfer })
+  await timelineFrames.nth(2).dispatchEvent('drop', { dataTransfer })
+  await timelineFrames.first().dispatchEvent('dragend', { dataTransfer })
+
+  await expect(leftFrames).toHaveText([before[1], before[2], before[0], before[3]])
+  await expect(page.locator('.timeline-frame-cell').nth(2)).toHaveClass(/is-active/)
+})
+test('curve editor edits multi-key timing and restores it after reload', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+
+  const durationCells = page.locator('.timeline-frame-duration')
+  const before = await durationCells.allTextContents()
+
+  await page.locator('.curve-editor-toggle').click()
+  const drawer = page.locator('.curve-editor-drawer')
+  await expect(drawer).toBeVisible()
+  await expect(drawer.locator('.curve-main-path')).toHaveAttribute('d', /^M/)
+  await expect(drawer.locator('.curve-keyframe')).toHaveCount(2)
+
+  await drawer.locator('.curve-select-field select').selectOption('ease-in-out')
+  await expect(drawer.locator('.curve-keyframe')).toHaveCount(3)
+  await expect.poll(async () => {
+    const values = await durationCells.allTextContents()
+    return values.reduce((sum, value) => sum + Number.parseFloat(value), 0)
+  }).toBeCloseTo(500, 0)
+  await expect.poll(async () => (await durationCells.allTextContents()).join('|')).not.toBe(before.join('|'))
+
+  await drawer.locator('.curve-graph').dblclick({ position: { x: 320, y: 84 } })
+  await expect(drawer.locator('.curve-keyframe')).toHaveCount(4)
+  const timeInput = drawer.locator('.curve-number-field input').nth(0)
+  const timeBefore = Number(await timeInput.inputValue())
+  const activeKeyframe = drawer.locator('.curve-keyframe.is-active')
+  const keyframeBounds = await activeKeyframe.boundingBox()
+  expect(keyframeBounds).not.toBeNull()
+  await page.mouse.move(keyframeBounds!.x + keyframeBounds!.width / 2, keyframeBounds!.y + keyframeBounds!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(keyframeBounds!.x + keyframeBounds!.width / 2 + 22, keyframeBounds!.y + keyframeBounds!.height / 2)
+  await page.mouse.up()
+  await expect.poll(async () => Number(await timeInput.inputValue())).not.toBe(timeBefore)
+
+  const tangentInput = drawer.locator('.curve-number-field input').nth(2)
+  const tangentBefore = Number(await tangentInput.inputValue())
+  const tangentHandle = drawer.locator('.curve-tangent-handle.is-active').first()
+  const tangentBounds = await tangentHandle.boundingBox()
+  expect(tangentBounds).not.toBeNull()
+  await page.mouse.move(tangentBounds!.x + tangentBounds!.width / 2, tangentBounds!.y + tangentBounds!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(tangentBounds!.x + tangentBounds!.width / 2, tangentBounds!.y + tangentBounds!.height / 2 + 18)
+  await page.mouse.up()
+  await expect.poll(async () => Number(await tangentInput.inputValue())).not.toBe(tangentBefore)
+
+  const speedInput = drawer.locator('.curve-number-field input').nth(1)
+  await speedInput.fill('2.5')
+  await expect(speedInput).toHaveValue('2.5')
+
+  const outputDirectory = process.env.STAGE1_OUTPUT_DIR ?? path.join(process.cwd(), 'test-results')
+  await mkdir(outputDirectory, { recursive: true })
+  await page.screenshot({
+    path: path.join(outputDirectory, 'sprite-light-lab-curve-editor.png'),
+    fullPage: true,
+  })
+
+  await page.waitForTimeout(900)
+  await page.reload()
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
+  await page.locator('.curve-editor-toggle').click()
+  await expect(page.locator('.curve-keyframe')).toHaveCount(4)
+  await page.locator('.curve-keyframe').nth(2).click()
+  await expect(page.locator('.curve-number-field input').nth(1)).toHaveValue('2.5')
 })
 
 test('WebGPU backend initializes when the environment exposes it', async ({ page }) => {
@@ -830,6 +922,7 @@ test('non-grid region import auto-detects and supports manual rectangle editing'
   await expect.poll(() => regionImage.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
   await expect(page.locator('.region-editor-box')).toHaveCount(2)
   await expect(page.locator('.region-list-item')).toHaveCount(2)
+  await expect(page.locator('.grid-preview-heading').first()).toContainText('128×128 · 2 帧 · 法线图同步区域')
   await expect(page.locator('.warning-card.warning-error')).toHaveCount(0)
 
   const firstRegion = page.locator('.region-editor-box').first()
@@ -851,6 +944,7 @@ test('non-grid region import auto-detects and supports manual rectangle editing'
 
   await page.locator('.grid-import-footer .button-primary').click()
   await expect(page.getByTestId('grid-import-dialog')).toHaveCount(0)
+  await expect(page.locator('.notice')).toContainText('区域导入完成：2 帧、1 个动作。')
   await expect(page.locator('.frame-item')).toHaveCount(2)
   await expect(page.locator('.action-item')).toHaveCount(1)
   await page.waitForTimeout(900)

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { ActionSidebar } from './components/ActionSidebar'
 import { AnchorCalibrationPage } from './components/AnchorCalibrationPage'
@@ -11,6 +11,7 @@ import { ProjectLibraryPage } from './components/ProjectLibraryPage'
 import { Timeline } from './components/Timeline'
 import { Toolbar } from './components/Toolbar'
 import { importFiles as prepareAssetFiles } from './domain/importAssets'
+import { computeFrameSchedule } from './domain/animationTiming'
 import { createProjectDocument } from './domain/projectDocument'
 import {
   deleteProject,
@@ -56,6 +57,7 @@ export default function App() {
   const projectCreatedAt = useEditorStore((state) => state.projectCreatedAt)
   const isImporting = useEditorStore((state) => state.isImporting)
   const isPlaying = useEditorStore((state) => state.isPlaying)
+  const currentFrameIndex = useEditorStore((state) => state.currentFrameIndex)
   const anchorCalibrationEnabled = useEditorStore((state) => state.anchorCalibrationEnabled)
   const notice = useEditorStore((state) => state.notice)
   const importProjectFiles = useEditorStore((state) => state.importProjectFiles)
@@ -186,13 +188,30 @@ export default function App() {
     }
   }, [projectId])
 
+  const scheduledFrames = useMemo(() => {
+    if (!bundle || !action) {
+      return []
+    }
+    return action.frameIds.flatMap((frameId) => {
+      const frame = bundle.frames.find((candidate) => candidate.id === frameId)
+      return frame ? [frame] : []
+    })
+  }, [action, bundle])
+
+  const frameSchedule = useMemo(
+    () => (action ? computeFrameSchedule(action, scheduledFrames) : undefined),
+    [action, scheduledFrames],
+  )
+
   useEffect(() => {
-    if (!isPlaying || !action || action.frameIds.length === 0) {
+    if (!isPlaying || !action || scheduledFrames.length === 0 || !frameSchedule) {
       return
     }
-    const interval = window.setInterval(() => advanceFrame(), Math.max(16, 1000 / action.fps))
-    return () => window.clearInterval(interval)
-  }, [action, advanceFrame, isPlaying])
+    const durationMs =
+      frameSchedule.frames[currentFrameIndex]?.durationMs ?? Math.max(1, 1000 / action.fps)
+    const timeout = window.setTimeout(advanceFrame, Math.max(1, durationMs))
+    return () => window.clearTimeout(timeout)
+  }, [action, advanceFrame, currentFrameIndex, frameSchedule, isPlaying, scheduledFrames.length])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

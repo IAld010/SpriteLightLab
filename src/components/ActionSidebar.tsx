@@ -78,8 +78,8 @@ export function ActionSidebar() {
 
       <section className="panel-section frames-section">
         <div className="panel-heading">
-          <span>帧序列</span>
-          <span className="hint-label">拖拽排序</span>
+          <span>帧导航</span>
+          <span className="hint-label">与底栏同步</span>
         </div>
         <div className="frame-list">
           {frames.map((frame, index) => {

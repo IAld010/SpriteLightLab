@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { computeActionAlignment, resolveFrameAlignment } from '../domain/alignment'
+import { normalizeSpeedCurve } from '../domain/animationTiming'
 import { createDemoFiles, createFullColorDemoFiles } from '../demo/createDemoFiles'
 import { importProjectZip } from '../services/projectIO'
 import { createProjectId } from '../services/projectPersistence'
@@ -31,6 +32,7 @@ import type {
   PreviewTextureMode,
   ProjectDocument,
   RegionImportConfig,
+  SpeedCurve,
   TextureRef,
 } from '../domain/types'
 
@@ -85,6 +87,7 @@ interface EditorState {
   setPlaying: (playing: boolean) => void
   toggleLoop: () => void
   setFps: (fps: number) => void
+  updateSpeedCurve: (actionId: string, curve: SpeedCurve) => void
   renameAction: (actionId: string, name: string) => void
   reorderFrames: (actionId: string, fromIndex: number, toIndex: number) => void
   setAnchorCalibrationEnabled: (enabled: boolean) => void
@@ -497,6 +500,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ bundle: { ...state.bundle, animations } })
   },
 
+  updateSpeedCurve: (actionId, curve) => {
+    const { bundle } = get()
+    if (!bundle) {
+      return
+    }
+    const animations = bundle.animations.map((animation) =>
+      animation.id === actionId
+        ? { ...animation, timing: { speedCurve: normalizeSpeedCurve(curve) } }
+        : animation,
+    )
+    set({ bundle: { ...bundle, animations } })
+  },
   renameAction: (actionId, name) => {
     const trimmed = name.trim()
     const { bundle } = get()
@@ -617,7 +632,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   importRegionFiles: async (colorFile, normalFile, config) => {
-    set({ isImporting: true, notice: { tone: 'info', message: '??????????' } })
+    set({ isImporting: true, notice: { tone: 'info', message: '正在检测不规则区域…' } })
     try {
       const bundle = await importRegionAssetFiles(colorFile, normalFile, config)
       const warnings = collectCurrentWarnings(bundle)
@@ -636,7 +651,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         anchorCalibrationEnabled: false,
         notice: {
           tone: warnings.some((warning) => warning.severity === 'error') ? 'warning' : 'success',
-          message: `???????${bundle.frames.length} ??${bundle.animations.length} ????`,
+          message: `区域导入完成：${bundle.frames.length} 帧、${bundle.animations.length} 个动作。`,
         },
       })
       return true
@@ -645,7 +660,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         isImporting: false,
         notice: {
           tone: 'error',
-          message: error instanceof Error ? error.message : '??????????',
+          message: error instanceof Error ? error.message : '区域导入失败。',
         },
       })
       return false

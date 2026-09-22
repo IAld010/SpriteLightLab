@@ -1,10 +1,12 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  detectRegionsFromImageData,
+  detectRegionsFromImageDataAsync,
   readRegionImageData,
+  sortRegionRectangles,
   validateRegionConfig,
 } from '../domain/regionImport'
 import type { RegionImportConfig, Rect } from '../domain/types'
+import { useObjectUrl } from '../hooks/useObjectUrl'
 
 interface RegionImportWorkspaceProps {
   colorFile?: File
@@ -14,26 +16,6 @@ interface RegionImportWorkspaceProps {
   config: RegionImportConfig
   onChange: (config: RegionImportConfig) => void
   onError: (message?: string) => void
-}
-
-const objectUrlCache = new WeakMap<File, string>()
-const objectUrls = new Set<string>()
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', () => {
-    for (const url of objectUrls) URL.revokeObjectURL(url)
-    objectUrls.clear()
-  })
-}
-
-function useObjectUrl(file?: File): string | undefined {
-  if (!file) return undefined
-  const cached = objectUrlCache.get(file)
-  if (cached) return cached
-  const url = URL.createObjectURL(file)
-  objectUrlCache.set(file, url)
-  objectUrls.add(url)
-  return url
 }
 
 function NumberField({
@@ -60,7 +42,10 @@ function NumberField({
         max={max}
         step={step}
         value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={(event) => {
+          const next = Number(event.target.value)
+          if (Number.isFinite(next)) onChange(next)
+        }}
       />
     </label>
   )
@@ -110,10 +95,10 @@ function RegionEditor({
       right = left + original.width
       bottom = top + original.height
     } else {
-      if (drag.handle.includes('w')) left = Math.max(0, original.x + dx)
-      if (drag.handle.includes('e')) right = Math.min(size.width, original.x + original.width + dx)
-      if (drag.handle.includes('n')) top = Math.max(0, original.y + dy)
-      if (drag.handle.includes('s')) bottom = Math.min(size.height, original.y + original.height + dy)
+      if (drag.handle.includes('w')) left = Math.max(0, Math.min(right - 1, original.x + dx))
+      if (drag.handle.includes('e')) right = Math.min(size.width, Math.max(left + 1, original.x + original.width + dx))
+      if (drag.handle.includes('n')) top = Math.max(0, Math.min(bottom - 1, original.y + dy))
+      if (drag.handle.includes('s')) bottom = Math.min(size.height, Math.max(top + 1, original.y + original.height + dy))
     }
 
     const next = { x: left, y: top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) }
@@ -181,46 +166,68 @@ export function RegionImportWorkspace({
   const imageUrl = useObjectUrl(colorFile)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [detecting, setDetecting] = useState(false)
-  const lastDetectedFile = useRef<string | undefined>(undefined)
+  const [detectionProgress, setDetectionProgress] = useState(0)
+  const detectionController = useRef<AbortController | undefined>(undefined)
+  const lastDetectedFile = useRef<File | undefined>(undefined)
 
   const updateConfig = (patch: Partial<RegionImportConfig>) => {
     onChange({ ...config, ...patch })
   }
 
+  const cancelDetection = useCallback(() => {
+    detectionController.current?.abort()
+    detectionController.current = undefined
+    setDetecting(false)
+    setDetectionProgress(0)
+  }, [])
+
   const runDetection = useCallback(async (options: RegionImportConfig = config) => {
     if (!colorFile) return
+    detectionController.current?.abort()
+    const controller = new AbortController()
+    detectionController.current = controller
     setDetecting(true)
+    setDetectionProgress(0)
     onError(undefined)
     try {
       const data = await readRegionImageData(colorFile)
-      const regions = detectRegionsFromImageData(data, {
-        alphaThreshold: options.alphaThreshold,
-        backgroundMode: options.backgroundMode,
-        backgroundColor: options.backgroundColor,
-        colorTolerance: options.colorTolerance,
-        minRegionWidth: options.minRegionWidth,
-        minRegionHeight: options.minRegionHeight,
-        mergeDistance: options.mergeDistance,
-        padding: options.padding,
-      })
-      const sortedRegions = options.frameOrder === 'column-major'
-        ? [...regions].sort((left, right) => left.x === right.x ? left.y - right.y : left.x - right.x)
-        : regions
-      onChange({ ...options, mode: 'auto', regions: sortedRegions })
+      const regions = await detectRegionsFromImageDataAsync(
+        data,
+        {
+          alphaThreshold: options.alphaThreshold,
+          backgroundMode: options.backgroundMode,
+          backgroundColor: options.backgroundColor,
+          colorTolerance: options.colorTolerance,
+          minRegionWidth: options.minRegionWidth,
+          minRegionHeight: options.minRegionHeight,
+          mergeDistance: options.mergeDistance,
+          padding: options.padding,
+        },
+        controller.signal,
+        (progress) => setDetectionProgress(progress.progress),
+      )
+      if (controller.signal.aborted) return
+      onChange({ ...options, regions: sortRegionRectangles(regions, options.frameOrder) })
       setSelectedIndex(0)
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return
       onError(error instanceof Error ? error.message : '自动区域检测失败。')
     } finally {
-      setDetecting(false)
+      if (detectionController.current === controller) {
+        detectionController.current = undefined
+        setDetecting(false)
+        setDetectionProgress(0)
+      }
     }
   }, [colorFile, config, onChange, onError])
 
   useEffect(() => {
-    if (!colorFile || config.regions.length > 0 || lastDetectedFile.current === colorFile.name) return
-    lastDetectedFile.current = colorFile.name
+    if (!colorFile || (lastDetectedFile.current === colorFile && config.regions.length > 0)) return
+    lastDetectedFile.current = colorFile
     void runDetection(config)
   }, [colorFile, config, runDetection])
 
+  useEffect(() => () => detectionController.current?.abort(), [])
   const current = config.regions[selectedIndex]
   const warnings = colorSize
     ? validateRegionConfig(config, colorSize, normalSize)
@@ -237,7 +244,7 @@ export function RegionImportWorkspace({
     next.width = Math.min(next.width, colorSize.width - next.x)
     next.height = Math.min(next.height, colorSize.height - next.y)
     const regions = config.regions.map((rect, index) => index === selectedIndex ? next : rect)
-    onChange({ ...config, mode: 'manual', regions })
+    onChange({ ...config, regions })
   }
 
   const addRegion = () => {
@@ -252,14 +259,14 @@ export function RegionImportWorkspace({
     }
     const regions = [...config.regions, region]
     setSelectedIndex(regions.length - 1)
-    onChange({ ...config, mode: 'manual', regions })
+    onChange({ ...config, regions })
   }
 
   const removeRegion = () => {
     if (!current) return
     const regions = config.regions.filter((_, index) => index !== selectedIndex)
     setSelectedIndex(Math.max(0, Math.min(selectedIndex, regions.length - 1)))
-    onChange({ ...config, mode: 'manual', regions })
+    onChange({ ...config, regions })
   }
 
   const mergeWithNext = () => {
@@ -276,7 +283,7 @@ export function RegionImportWorkspace({
     const regions = config.regions
       .filter((_, index) => index !== selectedIndex && index !== selectedIndex + 1)
     regions.splice(selectedIndex, 0, merged)
-    onChange({ ...config, mode: 'manual', regions })
+    onChange({ ...config, regions })
   }
 
   const sortRegions = () => {
@@ -301,7 +308,7 @@ export function RegionImportWorkspace({
             min={0}
             max={254}
             value={config.alphaThreshold}
-            onChange={(alphaThreshold) => updateConfig({ alphaThreshold, mode: 'auto' })}
+            onChange={(alphaThreshold) => updateConfig({ alphaThreshold })}
           />
           <label className="field">
             <span>背景识别</span>
@@ -310,7 +317,6 @@ export function RegionImportWorkspace({
               onChange={(event) =>
                 updateConfig({
                   backgroundMode: event.target.value as RegionImportConfig['backgroundMode'],
-                  mode: 'auto',
                 })
               }
             >
@@ -325,7 +331,7 @@ export function RegionImportWorkspace({
                 <input
                   type="color"
                   value={config.backgroundColor}
-                  onChange={(event) => updateConfig({ backgroundColor: event.target.value, mode: 'auto' })}
+                  onChange={(event) => updateConfig({ backgroundColor: event.target.value })}
                 />
               </label>
               <RangeField
@@ -333,15 +339,15 @@ export function RegionImportWorkspace({
                 min={0}
                 max={255}
                 value={config.colorTolerance}
-                onChange={(colorTolerance) => updateConfig({ colorTolerance, mode: 'auto' })}
+                onChange={(colorTolerance) => updateConfig({ colorTolerance })}
               />
             </>
           )}
           <div className="grid-number-grid">
-            <NumberField label="最小宽度" value={config.minRegionWidth} min={1} onChange={(minRegionWidth) => updateConfig({ minRegionWidth, mode: 'auto' })} />
-            <NumberField label="最小高度" value={config.minRegionHeight} min={1} onChange={(minRegionHeight) => updateConfig({ minRegionHeight, mode: 'auto' })} />
-            <NumberField label="合并距离" value={config.mergeDistance} min={0} onChange={(mergeDistance) => updateConfig({ mergeDistance, mode: 'auto' })} />
-            <NumberField label="外扩边距" value={config.padding} min={0} onChange={(padding) => updateConfig({ padding, mode: 'auto' })} />
+            <NumberField label="最小宽度" value={config.minRegionWidth} min={1} onChange={(minRegionWidth) => updateConfig({ minRegionWidth })} />
+            <NumberField label="最小高度" value={config.minRegionHeight} min={1} onChange={(minRegionHeight) => updateConfig({ minRegionHeight })} />
+            <NumberField label="合并距离" value={config.mergeDistance} min={0} onChange={(mergeDistance) => updateConfig({ mergeDistance })} />
+            <NumberField label="外扩边距" value={config.padding} min={0} onChange={(padding) => updateConfig({ padding })} />
           </div>
           <label className="field">
             <span>排序方式</span>
@@ -377,7 +383,7 @@ export function RegionImportWorkspace({
       <section className="region-import-editor">
         <div className="grid-preview-heading">
           <strong>不规则区域编辑</strong>
-          <span>{colorSize ? `${colorSize.width}?${colorSize.height}` : '?????'} ? {config.regions.length} ? {normalFile ? '\u6cd5\u7ebf\u56fe\u540c\u6b65\u533a\u57df' : '\u5e73\u5766\u6cd5\u7ebf'}</span>
+          <span>{colorSize ? `${colorSize.width}×${colorSize.height}` : '尺寸未知'} · {config.regions.length} 帧 · {normalFile ? '法线图同步区域' : '平坦法线'}</span>
         </div>
         <RegionEditor
           imageUrl={imageUrl}
@@ -385,7 +391,7 @@ export function RegionImportWorkspace({
           regions={config.regions}
           selectedIndex={selectedIndex}
           onSelect={setSelectedIndex}
-          onChange={(regions) => onChange({ ...config, mode: 'manual', regions })}
+          onChange={(regions) => onChange({ ...config, regions })}
         />
       </section>
 

@@ -104,7 +104,6 @@ it('creates different-sized color and normal frames from region rectangles', () 
     colorImage: { id: 'color', name: colorFile.name, path: colorFile.name, file: colorFile, width: 128, height: 128 },
     normalImage: { id: 'normal', name: normalFile.name, path: normalFile.name, file: normalFile, width: 128, height: 128 },
     config: {
-      mode: 'manual',
       alphaThreshold: 1,
       backgroundMode: 'transparent',
       backgroundColor: '#000000',

@@ -14,7 +14,6 @@ export interface Rect {
 export type RegionBackgroundMode = 'transparent' | 'color'
 
 export interface RegionImportConfig {
-  mode: 'auto' | 'manual'
   alphaThreshold: number
   backgroundMode: RegionBackgroundMode
   backgroundColor: string
@@ -85,6 +84,27 @@ export interface PreviewFrame {
   alignment?: FrameAlignment
 }
 
+export type SpeedKeyInterpolation = 'linear' | 'smooth' | 'stepped'
+
+export interface SpeedKeyframe {
+  id: string
+  time: number
+  value: number
+  inTangent: number
+  outTangent: number
+  interpolation: SpeedKeyInterpolation
+}
+
+export interface SpeedCurve {
+  version: 1
+  keyframes: SpeedKeyframe[]
+  preserveTotalDuration: boolean
+}
+
+export interface AnimationTiming {
+  speedCurve: SpeedCurve
+}
+
 export interface AnimationClip {
   id: string
   name: string
@@ -92,6 +112,7 @@ export interface AnimationClip {
   fps: number
   loop: boolean
   alignment?: ActionAlignment
+  timing?: AnimationTiming
 }
 
 export type WarningSeverity = 'warning' | 'error'

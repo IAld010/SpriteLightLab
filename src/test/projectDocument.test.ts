@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createDefaultSpeedCurve } from '../domain/animationTiming'
 import { createDefaultLighting, createDefaultPreferences } from '../domain/defaults'
 import { createPalettePreset } from '../domain/palette'
 import {
@@ -67,6 +68,8 @@ describe('project document', () => {
       anchorY: 128,
       scale: 1,
     }
+    document.animations[0].timing = { speedCurve: createDefaultSpeedCurve() }
+    document.animations[0].timing.speedCurve.keyframes[0].value = 0.5
     const restored = parseProjectDocument(serializeProjectDocument(document))
     expect(restored.version).toBe(2)
     expect(restored.projectName).toBe('测试角色')
@@ -74,6 +77,7 @@ describe('project document', () => {
     expect(restored.lighting.lights[1].showUi).toBe(false)
     expect(restored.frames[0].alignment?.pivotX).toBe(32)
     expect(restored.animations[0].alignment?.canvasHeight).toBe(128)
+    expect(restored.animations[0].timing?.speedCurve.keyframes[0].value).toBe(0.5)
   })
 
   it('upgrades version 1 documents without losing settings', () => {

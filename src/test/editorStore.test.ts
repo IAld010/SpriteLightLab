@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { createDefaultSpeedCurve } from '../domain/animationTiming'
 import type { AssetBundle } from '../domain/types'
 import { useEditorStore } from '../store/editorStore'
 
@@ -86,6 +87,24 @@ describe('editor store frame operations', () => {
     expect(state.bundle?.animations[0].frameIds).toEqual(['frame:2', 'frame:1'])
     expect(state.bundle?.frames[0].pairingStatus).toBe('manual')
     expect(state.warnings.some((warning) => warning.frameId === 'frame:2')).toBe(true)
+  })
+
+  it('stores a normalized multi-key speed curve on the selected action', () => {
+    const curve = createDefaultSpeedCurve()
+    curve.keyframes.splice(1, 0, {
+      id: 'speed-key:peak',
+      time: 0.5,
+      value: 2,
+      inTangent: 0,
+      outTangent: 0,
+      interpolation: 'linear',
+    })
+
+    useEditorStore.getState().updateSpeedCurve('clip:1', curve)
+
+    const stored = useEditorStore.getState().bundle?.animations[0].timing?.speedCurve
+    expect(stored?.keyframes.map((keyframe) => keyframe.time)).toEqual([0, 0.5, 1])
+    expect(stored?.keyframes[1].value).toBe(2)
   })
 
   it('clears the active project session without touching project configuration state', () => {

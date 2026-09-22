@@ -14,6 +14,7 @@ import type {
   RuntimeImage,
 } from '../domain/types'
 import { renderCpuSprite } from './CpuSpriteRenderer'
+import { computeAlignedSpriteScale } from './previewScale'
 import { objectRectFromCenter } from './lightingGeometry'
 import { registerPreviewExporter, unregisterPreviewExporter, type PreviewExporter } from './previewExportRegistry'
 
@@ -307,7 +308,7 @@ export class PreviewRenderer implements PreviewExporter {
       const scale = Math.max(0.05, fit * this.actionAlignment.scale * this.zoom)
       const canvasLeft = width / 2 - (canvasWidth * scale) / 2 + (this.panX * width) / 2
       const canvasTop = height / 2 - (canvasHeight * scale) / 2 + (this.panY * height) / 2
-      this.displayScale = scale * outputScale
+      this.displayScale = computeAlignedSpriteScale(scale, outputScale)
       this.displayX =
         canvasLeft + (this.actionAlignment.anchorX + this.frameAlignment.offsetX) * scale
       this.displayY =

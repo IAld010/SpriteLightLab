@@ -1,4 +1,4 @@
-﻿import { inferActionName } from './frameImport'
+import { inferActionName } from './frameImport'
 import { uniqueId } from './pathUtils'
 import type {
   AssetBundle,
@@ -10,7 +10,6 @@ import type {
 } from './types'
 
 export const DEFAULT_REGION_CONFIG: RegionImportConfig = {
-  mode: 'auto',
   alphaThreshold: 1,
   backgroundMode: 'transparent',
   backgroundColor: '#000000',
@@ -115,56 +114,127 @@ function mergeNearbyRectangles(rectangles: Rect[], distance: number): Rect[] {
   return result
 }
 
-function sortRowMajor(rectangles: Rect[]): Rect[] {
-  const medianHeight = [...rectangles]
-    .map((rectangle) => rectangle.height)
-    .sort((left, right) => left - right)[Math.floor(rectangles.length / 2)] ?? 1
-  const tolerance = Math.max(4, medianHeight * 0.5)
-  const rows: Array<{ center: number; rectangles: Rect[] }> = []
-  for (const rectangle of [...rectangles].sort((left, right) => left.y - right.y)) {
-    const center = rectangle.y + rectangle.height / 2
-    let row = rows.find((candidate) => Math.abs(candidate.center - center) <= tolerance)
-    if (!row) {
-      row = { center, rectangles: [] }
-      rows.push(row)
+function median(values: number[]): number {
+  if (values.length === 0) return 1
+  const sorted = [...values].sort((left, right) => left - right)
+  return sorted[Math.floor(sorted.length / 2)] ?? 1
+}
+
+function clusterRectangles(
+  rectangles: Rect[],
+  frameOrder: RegionImportConfig['frameOrder'],
+): Rect[] {
+  if (rectangles.length === 0) return []
+  const rowMajor = frameOrder === 'row-major'
+  const primaryStart = (rectangle: Rect) => (rowMajor ? rectangle.y : rectangle.x)
+  const primarySize = (rectangle: Rect) => (rowMajor ? rectangle.height : rectangle.width)
+  const secondaryStart = (rectangle: Rect) => (rowMajor ? rectangle.x : rectangle.y)
+  const secondarySize = (rectangle: Rect) => (rowMajor ? rectangle.width : rectangle.height)
+  const tolerance = Math.max(4, median(rectangles.map(primarySize)) * 0.6)
+  const lines: Array<{ start: number; end: number; rectangles: Rect[] }> = []
+
+  for (const rectangle of [...rectangles].sort((left, right) => primaryStart(left) - primaryStart(right))) {
+    const start = primaryStart(rectangle)
+    const end = start + primarySize(rectangle)
+    const center = start + primarySize(rectangle) / 2
+    let bestLine: (typeof lines)[number] | undefined
+    let bestScore = Number.POSITIVE_INFINITY
+
+    for (const line of lines) {
+      const overlap = Math.max(0, Math.min(end, line.end) - Math.max(start, line.start))
+      const lineCenter = (line.start + line.end) / 2
+      const centerDistance = Math.abs(center - lineCenter)
+      if (overlap <= 0 && centerDistance > tolerance) continue
+      const score = overlap > 0 ? -overlap : centerDistance
+      if (score < bestScore) {
+        bestLine = line
+        bestScore = score
+      }
     }
-    row.rectangles.push(rectangle)
-    row.center = row.rectangles.reduce(
-      (sum, item) => sum + item.y + item.height / 2,
-      0,
-    ) / row.rectangles.length
-  }
-  return rows
-    .sort((left, right) => left.center - right.center)
-    .flatMap((row) => row.rectangles.sort((left, right) => left.x - right.x))
-}
 
-function sortRectangles(rectangles: Rect[], frameOrder: RegionImportConfig['frameOrder']): Rect[] {
-  if (frameOrder === 'column-major') {
-    return [...rectangles].sort((left, right) =>
-      left.x === right.x ? left.y - right.y : left.x - right.x,
+    if (!bestLine) {
+      lines.push({ start, end, rectangles: [rectangle] })
+      continue
+    }
+    bestLine.start = Math.min(bestLine.start, start)
+    bestLine.end = Math.max(bestLine.end, end)
+    bestLine.rectangles.push(rectangle)
+  }
+
+  return lines
+    .sort((left, right) => left.start - right.start)
+    .flatMap((line) =>
+      line.rectangles.sort(
+        (left, right) =>
+          secondaryStart(left) - secondaryStart(right) ||
+          primaryStart(left) - primaryStart(right) ||
+          secondarySize(left) - secondarySize(right),
+      ),
     )
-  }
-  return sortRowMajor(rectangles)
 }
 
-export function detectRegionsFromImageData(
+export function sortRegionRectangles(
+  rectangles: Rect[],
+  frameOrder: RegionImportConfig['frameOrder'],
+): Rect[] {
+  return clusterRectangles(rectangles, frameOrder)
+}
+const DETECTION_YIELD_INTERVAL = 32_768
+
+export const MAX_REGION_DETECTION_PIXELS = 16_000_000
+
+export interface RegionDetectionProgress {
+  processedPixels: number
+  totalPixels: number
+  progress: number
+}
+
+function createAbortError(): Error {
+  const error = new Error('区域检测已取消。')
+  error.name = 'AbortError'
+  return error
+}
+
+function yieldToMainThread(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => resolve())
+    } else {
+      setTimeout(resolve, 0)
+    }
+  })
+}
+
+function* detectRegionsIterator(
   image: ImageData,
   options: RegionDetectionOptions,
-): Rect[] {
+): Generator<number, Rect[], void> {
   const width = image.width
   const height = image.height
   const total = width * height
+  if (total > MAX_REGION_DETECTION_PIXELS) {
+    throw new Error(
+      `图片为 ${width}×${height}，超过自动检测上限 ${MAX_REGION_DETECTION_PIXELS.toLocaleString()} 像素。请先缩小图片或改用手动区域。`,
+    )
+  }
+
   const background = parseHexColor(options.backgroundColor)
   const visited = new Uint8Array(total)
   const queue = new Int32Array(total)
   const regions: Rect[] = []
+  let chunkWork = 0
+
 
   for (let start = 0; start < total; start += 1) {
     if (visited[start]) continue
     const startOffset = start * 4
     if (!isForegroundPixel(image.data, startOffset, options, background)) {
       visited[start] = 1
+      chunkWork += 1
+      if (chunkWork >= DETECTION_YIELD_INTERVAL) {
+        yield chunkWork
+        chunkWork = 0
+      }
       continue
     }
 
@@ -185,6 +255,11 @@ export function detectRegionsFromImageData(
       minY = Math.min(minY, y)
       maxX = Math.max(maxX, x)
       maxY = Math.max(maxY, y)
+      chunkWork += 1
+      if (chunkWork >= DETECTION_YIELD_INTERVAL) {
+        yield chunkWork
+        chunkWork = 0
+      }
 
       for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
         for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
@@ -219,12 +294,52 @@ export function detectRegionsFromImageData(
     const bottom = Math.min(height, rectangle.y + rectangle.height + Math.max(0, options.padding))
     return { x, y, width: right - x, height: bottom - y }
   })
-  return sortRectangles(padded, 'row-major')
+  return sortRegionRectangles(padded, 'row-major')
 }
 
+export function detectRegionsFromImageData(
+  image: ImageData,
+  options: RegionDetectionOptions,
+): Rect[] {
+  const iterator = detectRegionsIterator(image, options)
+  let result = iterator.next()
+  while (!result.done) {
+    result = iterator.next()
+  }
+  return result.value
+}
+
+export async function detectRegionsFromImageDataAsync(
+  image: ImageData,
+  options: RegionDetectionOptions,
+  signal?: AbortSignal,
+  onProgress?: (progress: RegionDetectionProgress) => void,
+): Promise<Rect[]> {
+  const iterator = detectRegionsIterator(image, options)
+  const totalPixels = image.width * image.height
+  let processedPixels = 0
+
+  while (true) {
+    if (signal?.aborted) throw createAbortError()
+    const result = iterator.next()
+    if (result.done) return result.value
+    processedPixels += result.value
+    onProgress?.({
+      processedPixels,
+      totalPixels,
+      progress: totalPixels > 0 ? Math.min(1, processedPixels / totalPixels) : 1,
+    })
+    await yieldToMainThread()
+  }
+}
 export async function readRegionImageData(file: File): Promise<ImageData> {
   const bitmap = await createImageBitmap(file)
   try {
+    if (bitmap.width * bitmap.height > MAX_REGION_DETECTION_PIXELS) {
+      throw new Error(
+        `图片为 ${bitmap.width}×${bitmap.height}，超过自动检测上限 ${MAX_REGION_DETECTION_PIXELS.toLocaleString()} 像素。请先缩小图片或改用手动区域。`,
+      )
+    }
     const canvas = document.createElement('canvas')
     canvas.width = bitmap.width
     canvas.height = bitmap.height
@@ -236,7 +351,6 @@ export async function readRegionImageData(file: File): Promise<ImageData> {
     bitmap.close()
   }
 }
-
 export function validateRegionConfig(
   config: RegionImportConfig,
   colorSize: { width: number; height: number },
@@ -298,7 +412,7 @@ export function createRegionBundle({
     throw new Error(errors.map((warning) => warning.message).join(' '))
   }
 
-  const rects = sortRectangles(config.regions, config.frameOrder)
+  const rects = sortRegionRectangles(config.regions, config.frameOrder)
   const frameDigits = String(rects.length).length
   const actionName = inferActionName(colorImage.path || colorImage.name)
   const animationId = uniqueId('clip', `${colorImage.id}:regions:${rects.length}`)
