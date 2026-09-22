@@ -43,6 +43,9 @@ export class PreviewRenderer implements PreviewExporter {
   private currentColor?: ImageData
   private currentNormal?: ImageData
   private currentIndex?: ImageData
+  private refinementOverlay?: ImageData
+  private refinementSourceVisible = true
+  private refinementSourceOpacity = 1
   private currentFrameRect: FrameRect = { x: 0, y: 0, width: 1, height: 1 }
   private appearance?: PreviewAppearance
   private frameAlignment?: FrameAlignment
@@ -117,6 +120,9 @@ export class PreviewRenderer implements PreviewExporter {
   ): Promise<void> {
     if (!this.app) return
     this.textureMode = textureMode
+    this.refinementOverlay = undefined
+    this.refinementSourceVisible = true
+    this.refinementSourceOpacity = 1
     this.frameAlignment = frameAlignment
     this.actionAlignment = actionAlignment
     const token = ++this.currentToken
@@ -164,6 +170,17 @@ export class PreviewRenderer implements PreviewExporter {
   updateAppearance(appearance: PreviewAppearance): void {
     this.appearance = appearance
     if (this.sprite) this.sprite.roundPixels = appearance.preferences.pixelPerfect
+    void this.renderFrame()
+  }
+
+  setRefinementOverlay(overlay?: ImageData): void {
+    this.refinementOverlay = overlay
+    void this.renderFrame()
+  }
+
+  setRefinementSource(visible: boolean, opacity: number): void {
+    this.refinementSourceVisible = visible
+    this.refinementSourceOpacity = Math.min(1, Math.max(0, opacity))
     void this.renderFrame()
   }
 
@@ -268,6 +285,9 @@ export class PreviewRenderer implements PreviewExporter {
         pixelPerfect: true,
       },
       objectRect: this.objectRect(),
+      refinementOverlay: this.refinementOverlay,
+      sourceVisible: this.refinementSourceVisible,
+      sourceOpacity: this.refinementSourceOpacity,
       debugNormal: this.textureMode === 'normal',
     })
   }

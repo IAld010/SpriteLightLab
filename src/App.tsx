@@ -6,6 +6,7 @@ import { ImportGuideDialog } from './components/ImportGuide'
 import { ManualMatchPage } from './components/ManualMatchPage'
 import { InspectorPanel } from './components/InspectorPanel'
 import { PreviewStage } from './components/PreviewStage'
+import { ProjectEditorWorkspace } from './components/ProjectEditorWorkspace'
 import { ProjectLibraryPage } from './components/ProjectLibraryPage'
 import { Timeline } from './components/Timeline'
 import { Toolbar } from './components/Toolbar'
@@ -25,6 +26,7 @@ import { getSelectedAction, useEditorStore } from './store/editorStore'
 import { useProjectLibraryStore } from './store/projectLibraryStore'
 import { isExternalFileDrag } from './utils/dragAndDrop'
 import { useProjectStore } from './store/projectStore'
+import { useRefinementStore } from './store/refinementStore'
 import { useI18n } from './i18n'
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -44,6 +46,8 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [rendererStatus, setRendererStatus] = useState('未连接')
   const [showLibrary, setShowLibrary] = useState(true)
+  const [showProjectEditor, setShowProjectEditor] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'dirty' | 'saving' | 'failed'>('saved')
   const [showGridImport, setShowGridImport] = useState(false)
   const [showImportGuide, setShowImportGuide] = useState(false)
   const [matchingBundle, setMatchingBundle] = useState<AssetBundle>()
@@ -70,6 +74,7 @@ export default function App() {
   const setPlaying = useEditorStore((state) => state.setPlaying)
   const action = useEditorStore((state) => getSelectedAction(state))
   const settings = useEditorStore((state) => state.settings)
+  const refinementDirty = useRefinementStore((state) => state.dirty)
 
   const projects = useProjectLibraryStore((state) => state.projects)
   const activeProjectId = useProjectLibraryStore((state) => state.activeProjectId)
@@ -105,24 +110,35 @@ export default function App() {
     if (!editor.bundle || !editor.projectId) {
       return
     }
-    const document = createProjectDocument(
-      editor.bundle,
-      {
-        projectName: project.projectName,
-        palettePresets: project.palettePresets,
-        activePaletteId: project.activePaletteId,
-        lighting: project.lighting,
-        renderPreferences: project.renderPreferences,
-      },
-      editor.settings,
-    )
-    const summary = await saveProject({
-      id: editor.projectId,
-      createdAt: editor.projectCreatedAt ?? document.createdAt,
-      document,
-      files: projectFilesFromBundle(editor.bundle),
-    })
-    upsertProject(summary, true)
+    setSaveStatus('saving')
+    try {
+      const refinement = useRefinementStore.getState()
+      const document = createProjectDocument(
+        editor.bundle,
+        {
+          projectName: project.projectName,
+          palettePresets: project.palettePresets,
+          activePaletteId: project.activePaletteId,
+          lighting: project.lighting,
+          renderPreferences: project.renderPreferences,
+        },
+        editor.settings,
+        { refinements: Object.values(refinement.refinements) },
+      )
+      const summary = await saveProject({
+        id: editor.projectId,
+        createdAt: editor.projectCreatedAt ?? document.createdAt,
+        document,
+        files: projectFilesFromBundle(editor.bundle),
+        refinementAssets: Object.values(refinement.assets),
+      })
+      upsertProject(summary, true)
+      useRefinementStore.getState().markClean()
+      setSaveStatus('saved')
+    } catch (error) {
+      setSaveStatus('failed')
+      throw error
+    }
   }, [upsertProject])
 
   const flushCurrentProject = useCallback(async (): Promise<void> => {
@@ -155,7 +171,7 @@ export default function App() {
             await importProjectFiles(stored.files, stored.document, {
               projectId: stored.id,
               createdAt: stored.createdAt,
-            })
+            }, stored.refinementAssets)
             if (!cancelled) {
               setShowLibrary(false)
             }
@@ -186,7 +202,7 @@ export default function App() {
       saveQueue.current = saveQueue.current.catch(() => undefined).then(persistCurrentProject)
     }, 700)
     return () => window.clearTimeout(timeout)
-  }, [bundle, persistCurrentProject, projectCreatedAt, projectId, settings])
+  }, [bundle, persistCurrentProject, projectCreatedAt, projectId, refinementDirty, settings])
 
   useEffect(() => {
     if (hydrated.current && projectId) {
@@ -223,6 +239,11 @@ export default function App() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault()
+        if (showProjectEditor) {
+          if (event.shiftKey) useRefinementStore.getState().redo()
+          else useRefinementStore.getState().undo()
+          return
+        }
         if (event.shiftKey) {
           useProjectStore.getState().redo()
         } else {
@@ -232,10 +253,15 @@ export default function App() {
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
         event.preventDefault()
-        useProjectStore.getState().redo()
+        if (showProjectEditor) useRefinementStore.getState().redo()
+        else useProjectStore.getState().redo()
         return
       }
       if (event.code !== 'Space' || isEditableTarget(event.target)) {
+        return
+      }
+      if (showProjectEditor) {
+        event.preventDefault()
         return
       }
       event.preventDefault()
@@ -243,7 +269,7 @@ export default function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isPlaying, setPlaying])
+  }, [isPlaying, setPlaying, showProjectEditor])
 
   useEffect(() => {
     if (!notice || notice.tone === 'info') {
@@ -375,13 +401,15 @@ export default function App() {
         }
       }}
     >
-      <Toolbar
-        onPickFiles={(files) => void prepareLocalImport(files)}
-        onOpenGridImport={() => setShowGridImport(true)}
-        onOpenLibrary={() => setShowLibrary(true)}
-        onOpenImportGuide={() => setShowImportGuide(true)}
-        projectCount={projects.length}
-      />
+      {!showProjectEditor && (<Toolbar
+          onPickFiles={(files) => void prepareLocalImport(files)}
+          onOpenGridImport={() => setShowGridImport(true)}
+          onOpenLibrary={() => setShowLibrary(true)}
+          onOpenImportGuide={() => setShowImportGuide(true)}
+          onOpenProjectEditor={() => { setShowLibrary(false); setShowProjectEditor(true) }}
+          projectEditorAvailable={Boolean(bundle)}
+          projectCount={projects.length}
+        />      )}
 
       {matchingBundle ? (
         <ManualMatchPage
@@ -407,6 +435,12 @@ export default function App() {
         />
       ) : anchorCalibrationEnabled ? (
         <AnchorCalibrationPage />
+      ) : showProjectEditor ? (
+        <ProjectEditorWorkspace
+          saveStatus={refinementDirty && saveStatus === 'saved' ? 'dirty' : saveStatus}
+          onSave={() => void flushCurrentProject()}
+          onExit={() => setShowProjectEditor(false)}
+        />
       ) : (
         <main className="workspace">
           <InspectorPanel

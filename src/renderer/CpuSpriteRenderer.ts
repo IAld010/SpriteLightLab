@@ -24,6 +24,11 @@ export interface CpuRenderInput {
   preferences: RenderPreferences
   objectRect: ObjectRect
   debugNormal?: boolean
+  /** RGBA refinement overlay already composited in the frame's native pixel space. */
+  refinementOverlay?: ImageData
+  /** Source color texture visibility. Lighting still uses the original alpha region. */
+  sourceVisible?: boolean
+  sourceOpacity?: number
 }
 
 function clamp(value: number, minimum = 0, maximum = 1): number {
@@ -224,19 +229,28 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
       const sourceX = Math.min(frame.x + Math.floor((x / outputWidth) * frame.width), frame.x + frame.width - 1)
       const sourceY = Math.min(frame.y + Math.floor((y / outputHeight) * frame.height), frame.y + frame.height - 1)
       const sourceOffset = (sourceY * color.width + sourceX) * 4
-      const alpha = color.data[sourceOffset + 3]
       const outputOffset = (y * outputWidth + x) * 4
-      if (alpha < 1) {
+      const originalAlpha = color.data[sourceOffset + 3] / 255
+      const sourceOpacity = Math.min(1, Math.max(0, input.sourceOpacity ?? 1))
+      const sourceAlpha = input.sourceVisible === false ? 0 : originalAlpha * sourceOpacity
+      const overlay = input.refinementOverlay
+      const hasOverlay =
+        overlay &&
+        overlay.width === outputWidth &&
+        overlay.height === outputHeight
+      const overlayAlpha = hasOverlay ? overlay.data[outputOffset + 3] / 255 : 0
+      const finalAlpha = overlayAlpha + sourceAlpha * (1 - overlayAlpha)
+      if (finalAlpha < 1 / 255) {
         output.data[outputOffset + 3] = 0
         continue
       }
 
-      if (input.debugNormal) {
+      if (input.debugNormal && originalAlpha >= 1 / 255) {
         const normalOffset = (sourceY * normal.width + sourceX) * 4
         output.data[outputOffset] = normal.data[normalOffset]
         output.data[outputOffset + 1] = normal.data[normalOffset + 1]
         output.data[outputOffset + 2] = normal.data[normalOffset + 2]
-        output.data[outputOffset + 3] = alpha
+        output.data[outputOffset + 3] = originalAlpha * 255
         continue
       }
 
@@ -244,20 +258,40 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
       let green = color.data[sourceOffset + 1] / 255
       let blue = color.data[sourceOffset + 2] / 255
 
-      if (input.paletteMode === 'indexed') {
-        const key = (color.data[sourceOffset] << 16) | (color.data[sourceOffset + 1] << 8) | color.data[sourceOffset + 2]
-        const paletteIndex = paletteIndexByColor.get(key) ?? 0
-        const lutOffset = paletteIndex * 4
-        red = lut[lutOffset] / 255
-        green = lut[lutOffset + 1] / 255
-        blue = lut[lutOffset + 2] / 255
-      } else {
-        ;[red, green, blue] = applyRules([red, green, blue], input.palette.rules)
+      if (sourceAlpha >= 1 / 255) {
+        if (input.paletteMode === 'indexed') {
+          const key = (color.data[sourceOffset] << 16) | (color.data[sourceOffset + 1] << 8) | color.data[sourceOffset + 2]
+          const paletteIndex = paletteIndexByColor.get(key) ?? 0
+          const lutOffset = paletteIndex * 4
+          red = lut[lutOffset] / 255
+          green = lut[lutOffset + 1] / 255
+          blue = lut[lutOffset + 2] / 255
+        } else {
+          ;[red, green, blue] = applyRules([red, green, blue], input.palette.rules)
+        }
+
+        ;[red, green, blue] = adjustColor(red, green, blue, input.palette.adjustments)
       }
 
-      ;[red, green, blue] = adjustColor(red, green, blue, input.palette.adjustments)
+      if (hasOverlay && overlayAlpha > 0) {
+        const overlayRed = overlay.data[outputOffset] / 255
+        const overlayGreen = overlay.data[outputOffset + 1] / 255
+        const overlayBlue = overlay.data[outputOffset + 2] / 255
+        const sourceWeight = sourceAlpha * (1 - overlayAlpha)
+        red = (overlayRed * overlayAlpha + red * sourceWeight) / finalAlpha
+        green = (overlayGreen * overlayAlpha + green * sourceWeight) / finalAlpha
+        blue = (overlayBlue * overlayAlpha + blue * sourceWeight) / finalAlpha
+      }
 
-      if (input.preferences.lightingEnabled) {
+      if (input.debugNormal && originalAlpha < 1 / 255) {
+        output.data[outputOffset] = hasOverlay ? overlay.data[outputOffset] : 0
+        output.data[outputOffset + 1] = hasOverlay ? overlay.data[outputOffset + 1] : 0
+        output.data[outputOffset + 2] = hasOverlay ? overlay.data[outputOffset + 2] : 0
+        output.data[outputOffset + 3] = finalAlpha * 255
+        continue
+      }
+
+      if (input.preferences.lightingEnabled && originalAlpha >= 1 / 255) {
         const normalOffset = (sourceY * normal.width + sourceX) * 4
         let normalX = decodeNormalChannel(normal.data[normalOffset])
         let normalY = decodeNormalChannel(normal.data[normalOffset + 1])
@@ -317,7 +351,7 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
       output.data[outputOffset] = Math.round(clamp(red) * 255)
       output.data[outputOffset + 1] = Math.round(clamp(green) * 255)
       output.data[outputOffset + 2] = Math.round(clamp(blue) * 255)
-      output.data[outputOffset + 3] = alpha
+      output.data[outputOffset + 3] = Math.round(clamp(finalAlpha) * 255)
     }
   }
 

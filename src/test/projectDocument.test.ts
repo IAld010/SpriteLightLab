@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createDefaultSpeedCurve } from '../domain/animationTiming'
 import { createDefaultLighting, createDefaultPreferences } from '../domain/defaults'
 import { createPalettePreset } from '../domain/palette'
+import { createFrameRefinement } from '../domain/refinement'
 import {
   createProjectDocument,
   parseProjectDocument,
@@ -39,7 +40,7 @@ function bundle(): AssetBundle {
 }
 
 describe('project document', () => {
-  it('round-trips the upgraded version 2 project configuration', () => {
+  it('round-trips the upgraded version 3 project configuration', () => {
     const document = createProjectDocument(
       bundle(),
       {
@@ -71,8 +72,9 @@ describe('project document', () => {
     }
     document.animations[0].timing = { speedCurve: createDefaultSpeedCurve() }
     document.animations[0].timing.speedCurve.keyframes[0].value = 0.5
+    document.refinements = [createFrameRefinement('frame:1', 32, 32, 'source-hash')]
     const restored = parseProjectDocument(serializeProjectDocument(document))
-    expect(restored.version).toBe(2)
+    expect(restored.version).toBe(3)
     expect(restored.projectName).toBe('测试角色')
     expect(restored.normalPairing[0].normalId).toBe('normal:1')
     expect(restored.lighting.lights[0].direction).toBe(315)
@@ -80,6 +82,7 @@ describe('project document', () => {
     expect(restored.frames[0].alignment?.pivotX).toBe(32)
     expect(restored.animations[0].alignment?.canvasHeight).toBe(128)
     expect(restored.animations[0].timing?.speedCurve.keyframes[0].value).toBe(0.5)
+    expect(restored.refinements[0].sourceHash).toBe('source-hash')
   })
 
   it('upgrades version 1 documents without losing settings', () => {
@@ -104,13 +107,13 @@ describe('project document', () => {
     const legacy = { ...current, version: 1 } as ProjectDocumentV1
     const restored = parseProjectDocument(JSON.stringify(legacy))
 
-    expect(restored.version).toBe(2)
+    expect(restored.version).toBe(3)
     expect(restored.projectName).toBe('旧项目')
     expect(restored.settings.panX).toBe(0)
     expect(restored.gridConfig).toBeUndefined()
   })
 
-  it('persists grid import configuration in version 2 documents', () => {
+  it('persists grid import configuration in version 3 documents', () => {
     const gridConfig = {
       frameWidth: 32,
       frameHeight: 48,

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { createDefaultLighting, createDefaultPreferences } from '../domain/defaults'
 import { createPalettePreset } from '../domain/palette'
 import { createProjectDocument } from '../domain/projectDocument'
-import type { AssetBundle } from '../domain/types'
+import { createFrameRefinement } from '../domain/refinement'
+import type { AssetBundle, RefinementAssetRecord } from '../domain/types'
 import {
   exportPortableJson,
   exportProjectZip,
@@ -45,22 +46,47 @@ function makeDocument(bundle: AssetBundle) {
   )
 }
 
+function makeRefinementAsset(): RefinementAssetRecord {
+  return {
+    id: 'refinement-asset:1',
+    projectId: 'project:1',
+    frameId: 'frame:1',
+    layerId: 'layer:1',
+    blob: new Blob(['refined-pixel'], { type: 'image/png' }),
+    width: 32,
+    height: 32,
+    updatedAt: new Date(0).toISOString(),
+  }
+}
+
 describe('portable project IO', () => {
   it('round-trips a self-contained JSON project', async () => {
     const bundle = makeBundle()
-    const json = await exportPortableJson(makeDocument(bundle), bundle)
+    const document = makeDocument(bundle)
+    const refinement = createFrameRefinement('frame:1', 32, 32)
+    refinement.cels[0].bitmapAssetId = 'refinement-asset:1'
+    document.refinements = [refinement]
+    const json = await exportPortableJson(document, bundle, [makeRefinementAsset()])
     const restored = importPortableJson(json)
 
     expect(restored.document.projectName).toBe('Portable')
     expect(restored.files.map((file) => file.name)).toEqual(['hero.png', 'hero.json'])
+    expect(restored.refinementAssets).toHaveLength(1)
+    expect(restored.refinementAssets[0].id).toBe('refinement-asset:1')
   })
 
   it('round-trips a ZIP project', async () => {
     const bundle = makeBundle()
-    const zip = await exportProjectZip(makeDocument(bundle), bundle)
+    const document = makeDocument(bundle)
+    const refinement = createFrameRefinement('frame:1', 32, 32)
+    refinement.cels[0].bitmapAssetId = 'refinement-asset:1'
+    document.refinements = [refinement]
+    const zip = await exportProjectZip(document, bundle, [makeRefinementAsset()])
     const restored = await importProjectZip(zip)
 
     expect(restored.document.sourceName).toBe('hero.json')
     expect(restored.files).toHaveLength(2)
+    expect(restored.refinementAssets).toHaveLength(1)
+    expect(restored.refinementAssets[0].frameId).toBe('frame:1')
   })
 })

@@ -10,3 +10,7 @@ Third-party notices
 
 The app does not bundle code from Laigter, staxie, LorikeetPaletteSwapper,
 Colbydude/phaser-3-palette-swapping-example, or pixijs-light2d.
+- Piskel, Apache-2.0 License - https://github.com/piskelapp/piskel
+  Portions of the pixel line, brush stamping, connected flood-fill and
+  pixel-ellipse algorithms were adapted from Piskel's PixelUtils and drawing
+  shape tools for Sprite Light Lab's refinement editor.

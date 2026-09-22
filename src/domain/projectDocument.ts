@@ -5,8 +5,9 @@ import type {
   GridImportConfig,
   LightingState,
   PalettePreset,
+  FrameRefinement,
   ProjectDocument,
-  ProjectDocumentV2,
+  ProjectDocumentV3,
   RegionImportConfig,
   RenderPreferences,
 } from './types'
@@ -23,10 +24,10 @@ export function createProjectDocument(
   bundle: AssetBundle,
   state: ProjectStateSnapshot,
   settings: EditorSettings,
-  options: { gridConfig?: GridImportConfig; regionConfig?: RegionImportConfig } = {},
-): ProjectDocumentV2 {
+  options: { gridConfig?: GridImportConfig; regionConfig?: RegionImportConfig; refinements?: FrameRefinement[] } = {},
+): ProjectDocumentV3 {
   return {
-    version: 2,
+    version: 3,
     projectName: state.projectName,
     createdAt: new Date().toISOString(),
     sourceMode: bundle.mode,
@@ -55,19 +56,21 @@ export function createProjectDocument(
     activePaletteId: state.activePaletteId,
     lighting: state.lighting,
     renderPreferences: state.renderPreferences,
-    settings,
+    refinements: options.refinements ?? [],
+    settings: { ...settings, showRefinement: settings.showRefinement ?? true },
     ...(bundle.gridConfig || options.gridConfig ? { gridConfig: bundle.gridConfig ?? options.gridConfig } : {}),
     ...(bundle.regionConfig || options.regionConfig ? { regionConfig: bundle.regionConfig ?? options.regionConfig } : {}),
   }
 }
 
-export function upgradeProjectDocument(document: ProjectDocument): ProjectDocumentV2 {
-  if (document.version === 2) {
-    return document
+export function upgradeProjectDocument(document: ProjectDocument): ProjectDocumentV3 {
+  if (document.version === 3) {
+    return { ...document, refinements: document.refinements ?? [] }
   }
   return {
     ...document,
-    version: 2,
+    version: 3,
+    refinements: [],
   }
 }
 
@@ -95,18 +98,23 @@ export function serializeProjectDocument(document: ProjectDocument): string {
   return `${JSON.stringify(upgradeProjectDocument(document), null, 2)}\n`
 }
 
-export function parseProjectDocument(content: string): ProjectDocumentV2 {
+export function parseProjectDocument(content: string): ProjectDocumentV3 {
   const parsed = JSON.parse(content) as {
     version?: number
     palettePresets?: unknown
+    refinements?: unknown
   }
   if (
-    (parsed.version !== 1 && parsed.version !== 2) ||
+    (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3) ||
     !Array.isArray(parsed.palettePresets)
   ) {
     throw new Error('项目文件版本或结构不受支持。')
   }
-  return upgradeProjectDocument(parsed as unknown as ProjectDocument)
+  const upgraded = upgradeProjectDocument(parsed as unknown as ProjectDocument)
+  return {
+    ...upgraded,
+    refinements: Array.isArray(parsed.refinements) ? upgraded.refinements : [],
+  }
 }
 
 export function applyProjectDocumentToBundle(
@@ -150,8 +158,8 @@ export function applyProjectDocumentToBundle(
 
   return {
     ...bundle,
-    ...(document.version === 2 && document.gridConfig ? { gridConfig: document.gridConfig } : {}),
-    ...(document.version === 2 && document.regionConfig ? { regionConfig: document.regionConfig } : {}),
+    ...(document.version !== 1 && document.gridConfig ? { gridConfig: document.gridConfig } : {}),
+    ...(document.version !== 1 && document.regionConfig ? { regionConfig: document.regionConfig } : {}),
     frames,
     animations: animations.some((animation) => animation.frameIds.length > 0)
       ? animations

@@ -174,6 +174,8 @@ export interface EditorSettings {
   zoom: number
   panX: number
   panY: number
+  /** Whether refinement layers are composited in the normal preview. */
+  showRefinement?: boolean
 }
 export type PaletteMode = 'indexed' | 'fullcolor'
 export type LightType = 'directional' | 'point' | 'spot'
@@ -281,4 +283,63 @@ export interface ProjectDocumentV2 extends Omit<ProjectDocumentV1, 'version'> {
   regionConfig?: RegionImportConfig
 }
 
-export type ProjectDocument = ProjectDocumentV1 | ProjectDocumentV2
+export type RefinementLayerKind = 'raster' | 'effect' | 'helper'
+export type RefinementBlendMode = 'normal' | 'add' | 'multiply' | 'screen'
+
+export interface RefinementLayer {
+  id: string
+  name: string
+  kind: RefinementLayerKind
+  visible: boolean
+  locked: boolean
+  opacity: number
+  blendMode: RefinementBlendMode
+  paletteSwap: false
+}
+
+export interface RefinementCel {
+  id: string
+  frameId: string
+  layerId: string
+  bitmapAssetId?: string
+  offsetX: number
+  offsetY: number
+  width: number
+  height: number
+}
+
+export interface FrameRefinement {
+  id: string
+  sourceFrameId: string
+  visible: boolean
+  /** Read-only source color layer can be hidden without changing source data. */
+  sourceVisible: boolean
+  sourceOpacity: number
+  layers: RefinementLayer[]
+  cels: RefinementCel[]
+  revision: number
+  sourceHash: string
+}
+
+export interface RefinementAssetRecord {
+  id: string
+  projectId: string
+  frameId: string
+  layerId: string
+  blob: Blob
+  width: number
+  height: number
+  updatedAt: string
+}
+
+export interface RefinementProjectState {
+  refinements: FrameRefinement[]
+  assets: RefinementAssetRecord[]
+}
+
+export interface ProjectDocumentV3 extends Omit<ProjectDocumentV2, 'version'> {
+  version: 3
+  refinements: FrameRefinement[]
+}
+
+export type ProjectDocument = ProjectDocumentV1 | ProjectDocumentV2 | ProjectDocumentV3

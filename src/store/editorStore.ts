@@ -5,6 +5,7 @@ import { createDemoFiles, createFullColorDemoFiles } from '../demo/createDemoFil
 import { importProjectZip } from '../services/projectIO'
 import { createProjectId } from '../services/projectPersistence'
 import { useProjectStore } from './projectStore'
+import { useRefinementStore } from './refinementStore'
 import {
   applyProjectDocumentToBundle,
   projectStateFromDocument,
@@ -31,6 +32,7 @@ import type {
   PreviewBackground,
   PreviewTextureMode,
   ProjectDocument,
+  RefinementAssetRecord,
   RegionImportConfig,
   SpeedCurve,
   TextureRef,
@@ -73,7 +75,12 @@ interface EditorState {
     normalFile: File | undefined,
     config: RegionImportConfig,
   ) => Promise<boolean>
-  importProjectFiles: (files: File[], document: ProjectDocument, session?: ProjectSession) => Promise<void>
+  importProjectFiles: (
+    files: File[],
+    document: ProjectDocument,
+    session?: ProjectSession,
+    refinementAssets?: RefinementAssetRecord[],
+  ) => Promise<void>
   applyProjectDocument: (document: ProjectDocument) => void
   clearProject: () => void
   commitImportedBundle: (bundle: AssetBundle) => void
@@ -102,6 +109,7 @@ interface EditorState {
   setBackend: (backend: BackendPreference) => void
   setTextureMode: (mode: PreviewTextureMode) => void
   setBackground: (background: PreviewBackground) => void
+  setShowRefinement: (visible: boolean) => void
   setZoom: (zoom: number) => void
   setPan: (x: number, y: number) => void
   resetView: () => void
@@ -117,6 +125,7 @@ function mergeSettings(base: EditorSettings, imported?: Partial<EditorSettings>)
     zoom: imported?.zoom ?? 1,
     panX: imported?.panX ?? 0,
     panY: imported?.panY ?? 0,
+    showRefinement: imported?.showRefinement ?? true,
   }
 }
 
@@ -124,7 +133,7 @@ function cropFilesFromDocument(
   files: File[],
   document: ProjectDocument,
 ): { colorFile: File; normalFile?: File } | undefined {
-  if (document.version !== 2 || (!document.gridConfig && !document.regionConfig)) {
+  if (document.version === 1 || (!document.gridConfig && !document.regionConfig)) {
     return undefined
   }
   const imageAssets = document.assets.filter((asset) => asset.kind === 'image')
@@ -217,10 +226,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   commitImportedBundle: (bundle) => {
     const warnings = collectCurrentWarnings(bundle)
+    const projectId = createProjectId()
     useProjectStore.getState().initializeFromBundle(bundle)
     set({
       bundle,
-      projectId: createProjectId(),
+      projectId,
       projectCreatedAt: new Date().toISOString(),
       warnings,
       selectedActionId: bundle.animations[0]?.id,
@@ -233,6 +243,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         message: `已导入 ${bundle.frames.length} 帧、${bundle.animations.length} 个动作。`,
       },
     })
+    useRefinementStore.getState().initialize(projectId, [], [])
   },
   importLocalFiles: async (files) => {
     if (files.length === 0) {
@@ -244,6 +255,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const warnings = collectCurrentWarnings(bundle)
       const projectId = createProjectId()
       const projectCreatedAt = new Date().toISOString()
+      useRefinementStore.getState().initialize(projectId, [], [])
       useProjectStore.getState().initializeFromBundle(bundle)
       set({
         bundle,
@@ -278,6 +290,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const warnings = collectCurrentWarnings(bundle)
       const projectId = createProjectId()
       const projectCreatedAt = new Date().toISOString()
+      useRefinementStore.getState().initialize(projectId, [], [])
       useProjectStore.getState().initializeFromBundle(bundle)
       set({
         bundle,
@@ -306,7 +319,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return false
     }
   },
-  importProjectFiles: async (files, document, session) => {
+  importProjectFiles: async (files, document, session, refinementAssets) => {
     if (files.length === 0) {
       return
     }
@@ -314,17 +327,23 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     try {
       const cropFiles = cropFilesFromDocument(files, document)
       const imported =
-        cropFiles && document.version === 2 && document.regionConfig
+        cropFiles && document.version !== 1 && document.regionConfig
           ? await importRegionAssetFiles(cropFiles.colorFile, cropFiles.normalFile, document.regionConfig)
-          : cropFiles && document.version === 2 && document.gridConfig
+          : cropFiles && document.version !== 1 && document.gridConfig
             ? await importGridAssetFiles(cropFiles.colorFile, cropFiles.normalFile, document.gridConfig)
             : await importAssetFiles(files)
       const bundle = applyProjectDocumentToBundle(imported, document)
       useProjectStore.getState().applyProjectState(projectStateFromDocument(document))
       const warnings = collectCurrentWarnings(bundle)
+      const projectId = session?.projectId ?? createProjectId()
+      useRefinementStore.getState().initialize(
+        projectId,
+        document.version === 3 ? document.refinements : [],
+        refinementAssets ?? [],
+      )
       set({
         bundle,
-        projectId: session?.projectId ?? createProjectId(),
+        projectId,
         projectCreatedAt: session?.createdAt ?? new Date().toISOString(),
         warnings,
         selectedActionId: bundle.animations[0]?.id,
@@ -354,6 +373,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
     const nextBundle = applyProjectDocumentToBundle(bundle, document)
     useProjectStore.getState().applyProjectState(projectStateFromDocument(document))
+    useRefinementStore.getState().initialize(
+      get().projectId,
+      document.version === 3 ? document.refinements : [],
+      [],
+    )
     set({
       bundle: nextBundle,
       warnings: collectCurrentWarnings(nextBundle),
@@ -367,6 +391,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   clearProject: () => {
+    useRefinementStore.getState().reset()
     set({
       bundle: undefined,
       projectId: undefined,
@@ -399,7 +424,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         throw new Error('\u65e0\u6cd5\u8bfb\u53d6\u5185\u7f6e\u793a\u4f8b\u9879\u76ee\u3002')
       }
       const portable = await importProjectZip(await response.arrayBuffer())
-      await get().importProjectFiles(portable.files, portable.document)
+      await get().importProjectFiles(portable.files, portable.document, undefined, portable.refinementAssets)
     } catch (error) {
       set({
         isImporting: false,
@@ -638,6 +663,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const warnings = collectCurrentWarnings(bundle)
       const projectId = createProjectId()
       const projectCreatedAt = new Date().toISOString()
+      useRefinementStore.getState().initialize(projectId, [], [])
       useProjectStore.getState().initializeFromBundle(bundle)
       set({
         bundle,
@@ -698,6 +724,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setBackground: (background) => {
     set((state) => ({ settings: { ...state.settings, background } }))
+  },
+
+  setShowRefinement: (showRefinement) => {
+    set((state) => ({ settings: { ...state.settings, showRefinement } }))
   },
 
   setZoom: (zoom) => {

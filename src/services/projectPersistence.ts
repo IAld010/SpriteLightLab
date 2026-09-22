@@ -2,10 +2,12 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { upgradeProjectDocument } from '../domain/projectDocument'
 import type {
   AssetBundle,
+  FrameRefinement,
   ImportMode,
   ProjectDocument,
   ProjectDocumentV1,
-  ProjectDocumentV2,
+  ProjectDocumentV3,
+  RefinementAssetRecord,
 } from '../domain/types'
 
 export interface ProjectSummary {
@@ -24,8 +26,19 @@ export interface StoredProject {
   id: string
   createdAt: string
   updatedAt: string
-  document: ProjectDocumentV2
+  document: ProjectDocumentV3
   files: File[]
+}
+
+export interface LoadedProject extends StoredProject {
+  refinementAssets: RefinementAssetRecord[]
+}
+
+interface RefinementDocumentValue {
+  id: string
+  projectId: string
+  refinement: FrameRefinement
+  updatedAt: string
 }
 
 interface LegacyWorkspace {
@@ -48,6 +61,15 @@ interface ProjectDatabase extends DBSchema {
     key: string
     value: { id: 'active'; projectId?: string; savedAt: string }
   }
+  refinementDocuments: {
+    key: string
+    value: RefinementDocumentValue
+  }
+  refinementAssets: {
+    key: string
+    value: RefinementAssetRecord
+    indexes: { projectId: string }
+  }
   workspace: {
     key: string
     value: LegacyWorkspace
@@ -65,7 +87,7 @@ interface ProjectDatabase extends DBSchema {
 let databasePromise: Promise<IDBPDatabase<ProjectDatabase>> | undefined
 
 function getDatabase(): Promise<IDBPDatabase<ProjectDatabase>> {
-  databasePromise ??= openDB<ProjectDatabase>('sprite-light-lab', 3, {
+  databasePromise ??= openDB<ProjectDatabase>('sprite-light-lab', 4, {
     upgrade(db) {
       if (!db.objectStoreNames.contains('workspace')) {
         db.createObjectStore('workspace', { keyPath: 'id' })
@@ -81,6 +103,13 @@ function getDatabase(): Promise<IDBPDatabase<ProjectDatabase>> {
       }
       if (!db.objectStoreNames.contains('meta')) {
         db.createObjectStore('meta', { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains('refinementDocuments')) {
+        db.createObjectStore('refinementDocuments', { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains('refinementAssets')) {
+        const assets = db.createObjectStore('refinementAssets', { keyPath: 'id' })
+        assets.createIndex('projectId', 'projectId')
       }
     },
   })
@@ -106,7 +135,7 @@ function safeProjectName(name: string | undefined): string {
 }
 
 function summaryFromProject(
-  project: Omit<StoredProject, 'files'>,
+  project: Pick<StoredProject, 'id' | 'createdAt' | 'updatedAt' | 'document'>,
 ): ProjectSummary {
   return {
     id: project.id,
@@ -192,6 +221,7 @@ export async function saveProject(input: {
   createdAt: string
   document: ProjectDocument
   files: File[]
+  refinementAssets?: RefinementAssetRecord[]
 }): Promise<ProjectSummary> {
   const db = await ensureRepositoryReady()
   const document = upgradeProjectDocument(input.document)
@@ -204,7 +234,10 @@ export async function saveProject(input: {
     files: input.files,
   }
   const summary = summaryFromProject(stored)
-  const transaction = db.transaction(['projectIndex', 'projectData', 'meta'], 'readwrite')
+  const transaction = db.transaction(
+    ['projectIndex', 'projectData', 'meta', 'refinementDocuments', 'refinementAssets'],
+    'readwrite',
+  )
   await transaction.objectStore('projectIndex').put(summary)
   await transaction.objectStore('projectData').put(stored)
   await transaction.objectStore('meta').put({
@@ -212,23 +245,94 @@ export async function saveProject(input: {
     projectId: input.id,
     savedAt: now,
   })
+
+  const refinementIds = new Set(document.refinements.map((refinement) => refinement.id))
+  const existingRefinements = await transaction.objectStore('refinementDocuments').getAll()
+  for (const current of existingRefinements) {
+    if (current.projectId === input.id && !refinementIds.has(current.id)) {
+      await transaction.objectStore('refinementDocuments').delete(current.id)
+    }
+  }
+  for (const refinement of document.refinements) {
+    await transaction.objectStore('refinementDocuments').put({
+      id: refinement.id,
+      projectId: input.id,
+      refinement,
+      updatedAt: now,
+    })
+  }
+
+  const assets = (input.refinementAssets ?? []).map((asset) => ({
+    ...asset,
+    projectId: input.id,
+    updatedAt: asset.updatedAt || now,
+  }))
+  const assetIds = new Set(assets.map((asset) => asset.id))
+  const assetIndex = transaction.objectStore('refinementAssets').index('projectId')
+  const existingAssets = await assetIndex.getAll(input.id)
+  for (const current of existingAssets) {
+    if (!assetIds.has(current.id)) {
+      await transaction.objectStore('refinementAssets').delete(current.id)
+    }
+  }
+  for (const asset of assets) {
+    await transaction.objectStore('refinementAssets').put(asset)
+  }
+
   await transaction.done
   return summary
 }
 
-export async function loadProject(projectId: string): Promise<StoredProject | undefined> {
+export async function loadProject(projectId: string): Promise<LoadedProject | undefined> {
   const db = await ensureRepositoryReady()
-  return db.get('projectData', projectId)
+  const [stored, refinementRecords, refinementAssets] = await Promise.all([
+    db.get('projectData', projectId),
+    db.getAll('refinementDocuments'),
+    db.getAllFromIndex('refinementAssets', 'projectId', projectId),
+  ])
+  if (!stored) {
+    return undefined
+  }
+  const persistedRefinements = refinementRecords
+    .filter((record) => record.projectId === projectId)
+    .map((record) => record.refinement)
+  return {
+    ...stored,
+    document: {
+      ...stored.document,
+      refinements: persistedRefinements.length > 0
+        ? persistedRefinements
+        : stored.document.refinements ?? [],
+    },
+    refinementAssets,
+  }
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
   const db = await ensureRepositoryReady()
-  const transaction = db.transaction(['projectIndex', 'projectData', 'meta'], 'readwrite')
+  const transaction = db.transaction(
+    ['projectIndex', 'projectData', 'meta', 'refinementDocuments', 'refinementAssets'],
+    'readwrite',
+  )
   await transaction.objectStore('projectIndex').delete(projectId)
   await transaction.objectStore('projectData').delete(projectId)
   const active = await transaction.objectStore('meta').get('active')
   if (active?.projectId === projectId) {
     await transaction.objectStore('meta').delete('active')
+  }
+
+  const refinementRecords = await transaction.objectStore('refinementDocuments').getAll()
+  for (const record of refinementRecords) {
+    if (record.projectId === projectId) {
+      await transaction.objectStore('refinementDocuments').delete(record.id)
+    }
+  }
+  const assetKeys = await transaction
+    .objectStore('refinementAssets')
+    .index('projectId')
+    .getAllKeys(projectId)
+  for (const key of assetKeys) {
+    await transaction.objectStore('refinementAssets').delete(key)
   }
   await transaction.done
 }

@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { LightOverlay } from './LightOverlay'
 import type { PreviewBackground, PreviewTextureMode } from '../domain/types'
 import { PreviewRenderer } from '../renderer/PreviewRenderer'
+import { buildRefinementOverlay } from '../renderer/RefinementRenderer'
 import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
 import { resolveFrameAlignment } from '../domain/alignment'
 import { activePaletteFromState, useProjectStore } from '../store/projectStore'
+import { useRefinementStore } from '../store/refinementStore'
 import { t } from '../i18n'
 
 const EMPTY_PALETTE_SOURCES: string[] = []
@@ -39,6 +41,11 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
   const setPan = useEditorStore((state) => state.setPan)
   const resetView = useEditorStore((state) => state.resetView)
   const currentFrame = useEditorStore((state) => getCurrentFrame(state))
+  const showRefinement = useEditorStore((state) => state.settings.showRefinement !== false)
+  const frameRefinement = useRefinementStore((state) =>
+    currentFrame ? state.refinements[currentFrame.id] : undefined,
+  )
+  const refinementAssets = useRefinementStore((state) => state.assets)
   const selectedAction = useEditorStore((state) => getSelectedAction(state))
   const paletteMode = bundle?.paletteMode ?? 'fullcolor'
   const paletteSources = bundle?.paletteSources ?? EMPTY_PALETTE_SOURCES
@@ -127,6 +134,41 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
       ),
     )
   }, [actionAlignment, currentFrame, frameAlignment, readyVersion, textureMode])
+
+  useEffect(() => {
+    const renderer = rendererRef.current
+    if (!renderer || !currentFrame) {
+      return
+    }
+    let cancelled = false
+    renderer.setRefinementSource(
+      frameRefinement?.sourceVisible !== false,
+      frameRefinement?.sourceOpacity ?? 1,
+    )
+    if (!showRefinement || !frameRefinement) {
+      renderer.setRefinementOverlay(undefined)
+      return
+    }
+    void buildRefinementOverlay(
+      frameRefinement,
+      refinementAssets,
+      frameWidth,
+      frameHeight,
+    ).then((overlay) => {
+      if (!cancelled) renderer.setRefinementOverlay(overlay)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [
+    currentFrame,
+    frameHeight,
+    frameRefinement,
+    frameWidth,
+    readyVersion,
+    refinementAssets,
+    showRefinement,
+  ])
 
   useEffect(() => {
     if (rendererRef.current && palette) {

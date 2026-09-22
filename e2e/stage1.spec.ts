@@ -42,7 +42,8 @@ test('toolbar removes branding and orders project actions by workflow', async ({
     '示例项目 ▾',
   ])
   expect(actionLabels[4]).toMatch(/^项目库/)
-  expect(actionLabels[5]).toBe('? 导入说明')
+  expect(actionLabels[5]).toBe('项目编辑器')
+  expect(actionLabels[6]).toBe('? 导入说明')
 })
 
 test('demo picker exposes three example projects', async ({ page }) => {

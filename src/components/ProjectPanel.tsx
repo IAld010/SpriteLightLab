@@ -15,6 +15,7 @@ import { useEditorStore } from '../store/editorStore'
 import { ActionManager } from './ActionManager'
 import { ImportRulesPanel } from './ImportRulesPanel'
 import { useProjectStore } from '../store/projectStore'
+import { getRefinementProjectState } from '../store/refinementStore'
 import { downloadBlob, downloadText } from '../utils/download'
 import { t } from '../i18n'
 
@@ -53,6 +54,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
         renderPreferences,
       },
       settings,
+      { refinements: getRefinementProjectState().refinements },
     )
   }
 
@@ -165,7 +167,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
             disabled={!bundle}
             onClick={async () => {
               try {
-                const json = await exportPortableJson(buildDocument(), bundle!)
+                const json = await exportPortableJson(buildDocument(), bundle!, getRefinementProjectState().assets)
                 downloadText(json, `${safeName}-portable.json`, 'application/json')
                 setMessage('已导出自包含 JSON。')
               } catch (error) {
@@ -181,7 +183,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
             disabled={!bundle}
             onClick={async () => {
               try {
-                const bytes = await exportProjectZip(buildDocument(), bundle!)
+                const bytes = await exportProjectZip(buildDocument(), bundle!, getRefinementProjectState().assets)
                 downloadBlob(
                   new Blob([bytes.slice().buffer as ArrayBuffer], { type: 'application/zip' }),
                   `${safeName}.spritelab.zip`,
@@ -215,7 +217,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
               try {
                 if (file.name.toLowerCase().endsWith('.zip')) {
                   const portable = await importProjectZip(await file.arrayBuffer())
-                  await importProjectFiles(portable.files, portable.document)
+                  await importProjectFiles(portable.files, portable.document, undefined, portable.refinementAssets)
                 } else {
                   const content = await file.text()
                   const parsed = JSON.parse(content) as { format?: string }

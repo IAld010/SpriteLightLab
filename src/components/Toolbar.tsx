@@ -10,6 +10,8 @@ interface ToolbarProps {
   onOpenGridImport: () => void
   onOpenLibrary: () => void
   onOpenImportGuide: () => void
+  onOpenProjectEditor: () => void
+  projectEditorAvailable: boolean
   projectCount: number
 }
 
@@ -18,6 +20,8 @@ export function Toolbar({
   onOpenGridImport,
   onOpenLibrary,
   onOpenImportGuide,
+  onOpenProjectEditor,
+  projectEditorAvailable,
   projectCount,
 }: ToolbarProps) {
   const { language, setLanguage, t } = useI18n()
@@ -135,6 +139,15 @@ export function Toolbar({
         </button>
         <button
           type="button"
+          className="button button-primary"
+          onClick={onOpenProjectEditor}
+          disabled={!projectEditorAvailable}
+          data-testid="open-project-editor"
+        >
+          {t('\u9879\u76ee\u7f16\u8f91\u5668')}
+        </button>
+        <button
+          type="button"
           className="button button-help"
           onClick={onOpenImportGuide}
           data-testid="open-import-guide"
@@ -154,7 +167,7 @@ export function Toolbar({
             try {
               if (file.name.toLowerCase().endsWith('.zip')) {
                 const portable = await importProjectZip(await file.arrayBuffer())
-                await importProjectFiles(portable.files, portable.document)
+                await importProjectFiles(portable.files, portable.document, undefined, portable.refinementAssets)
               } else {
                 const content = await file.text()
                 const parsed = JSON.parse(content) as { format?: string }
