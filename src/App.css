@@ -205,7 +205,7 @@ img {
 
 .workspace {
   display: grid;
-  grid-template-columns: 220px minmax(560px, 1fr) 350px;
+  grid-template-columns: minmax(560px, 1fr) 350px;
   min-height: 0;
 }
 
@@ -1223,6 +1223,14 @@ img {
   border-bottom: 1px solid #1c2432;
 }
 
+.inspector-action-list {
+  flex: 0 1 auto;
+  max-height: min(30vh, 240px);
+}
+
+.action-manager-section {
+  border-bottom: 1px solid #273247;
+}
 .inspector-frame-list {
   flex: 0 1 auto;
   max-height: min(34vh, 280px);
@@ -1488,7 +1496,7 @@ img {
   }
 }
 .workspace {
-  grid-template-columns: 220px minmax(560px, 1fr) 350px;
+  grid-template-columns: minmax(560px, 1fr) 350px;
 }
 
 .inspector-tabs-four {

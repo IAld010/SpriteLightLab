@@ -12,6 +12,7 @@ import {
   importProjectZip,
 } from '../services/projectIO'
 import { useEditorStore } from '../store/editorStore'
+import { ActionManager } from './ActionManager'
 import { ImportRulesPanel } from './ImportRulesPanel'
 import { useProjectStore } from '../store/projectStore'
 import { downloadBlob, downloadText } from '../utils/download'
@@ -58,6 +59,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
 
   return (
     <div className="inspector-content project-panel">
+      <ActionManager />
       <section className="inspector-section">
         <label className="field">
           <span>项目名称</span>

@@ -14,7 +14,7 @@ interface InspectorPanelProps {
 type InspectorTab = 'palette' | 'lighting' | 'anchor' | 'frame' | 'project'
 
 export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanelProps) {
-  const [tab, setTab] = useState<InspectorTab>('palette')
+  const [tab, setTab] = useState<InspectorTab>('project')
   const bundle = useEditorStore((state) => state.bundle)
   const currentFrame = useEditorStore((state) => getCurrentFrame(state))
   const pairNormal = useEditorStore((state) => state.pairNormal)

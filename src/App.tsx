@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { ActionSidebar } from './components/ActionSidebar'
 import { AnchorCalibrationPage } from './components/AnchorCalibrationPage'
 import { GridImportDialog } from './components/GridImportDialog'
 import { ImportGuideDialog } from './components/ImportGuide'
@@ -404,7 +403,6 @@ export default function App() {
         <AnchorCalibrationPage />
       ) : (
         <main className="workspace">
-          <ActionSidebar />
           <section className="center-workspace">
             <PreviewStage onStatusChange={setRendererStatus} />
             <Timeline />

@@ -40,7 +40,8 @@ test('stage 1 imports the demo, groups clips and supports frame interaction', as
   await expect(page.locator('.project-card')).toHaveCount(0)
 
   await chooseDemo(page, 0)
-  await expect(page.locator('.action-item')).toHaveCount(2)
+  await expect(page.locator('.action-panel')).toHaveCount(0)
+  await expect(page.locator('.project-panel .action-item')).toHaveCount(2)
   await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
   await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
   await expect(page.locator('.timeline-frame-cell').first()).toContainText('125ms')
@@ -172,8 +173,17 @@ test('curve editor edits multi-key timing and restores it after reload', async (
   await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
   await page.locator('.curve-editor-toggle').click()
   await expect(page.locator('.curve-keyframe')).toHaveCount(4)
-  await page.locator('.curve-keyframe').nth(2).click()
-  await expect(page.locator('.curve-number-field input').nth(1)).toHaveValue('2.5')
+  const restoredKeyframes = page.locator('.curve-keyframe')
+  const restoredSpeedInput = page.locator('.curve-number-field input').nth(1)
+  let foundEditedKeyframe = false
+  for (let index = 0; index < 4; index += 1) {
+    await restoredKeyframes.nth(index).click()
+    if ((await restoredSpeedInput.inputValue()) === '2.5') {
+      foundEditedKeyframe = true
+      break
+    }
+  }
+  expect(foundEditedKeyframe).toBe(true)
 })
 
 test('drop overlay only accepts external file drags', async ({ page }) => {
@@ -214,6 +224,7 @@ test('WebGPU backend initializes when the environment exposes it', async ({ page
   test.skip(!supported, 'Current Edge environment does not expose WebGPU.')
 
   await chooseDemo(page, 0)
+  await page.locator('.inspector-tabs-four button').nth(0).click()
   await page.locator('.toolbar-settings select').selectOption('webgpu')
   await expect(page.locator('.renderer-error')).toHaveCount(0)
   const before = await page.locator('canvas').screenshot()
@@ -232,6 +243,7 @@ test('WebGPU backend initializes when the environment exposes it', async ({ page
 test('palette, lighting and ZIP project pack work together', async ({ page }) => {
   await page.goto('/')
   await chooseDemo(page, 0)
+  await page.locator('.inspector-tabs-four button').nth(0).click()
   await expect(page.locator('.swatch-row')).toHaveCount(12)
 
   const before = await page.locator('canvas').screenshot()
@@ -283,6 +295,7 @@ test('PWA starts offline after the first successful visit', async ({ page, conte
 test('full color mode exposes color rules and global adjustments', async ({ page }) => {
   await page.goto('/')
   await chooseDemo(page, 1)
+  await page.locator('.inspector-tabs-four button').nth(0).click()
   await expect(page.locator('.mode-fullcolor')).toBeVisible()
   await expect(page.locator('.color-rule')).toHaveCount(0)
   await page.locator('.palette-panel .section-title-row .mini-button').first().click()
@@ -488,7 +501,8 @@ test('project library saves, switches, renames and removes projects', async ({ p
   await expect(page.getByTestId('project-library')).toBeVisible()
 
   await chooseDemo(page, 0)
-  await expect(page.locator('.action-item')).toHaveCount(2)
+  await expect(page.locator('.action-panel')).toHaveCount(0)
+  await expect(page.locator('.project-panel .action-item')).toHaveCount(2)
   await page.waitForTimeout(900)
   await page.getByTestId('open-project-library').click()
   await expect(page.locator('.project-card')).toHaveCount(1)
@@ -639,7 +653,8 @@ test('legacy single-workspace data migrates once and can be removed permanently'
 test('specular strength changes the rendered lighting output', async ({ page }) => {
   await page.goto('/')
   await chooseDemo(page, 0)
-  await expect(page.locator('.action-item')).toHaveCount(2)
+  await expect(page.locator('.action-panel')).toHaveCount(0)
+  await expect(page.locator('.project-panel .action-item')).toHaveCount(2)
 
   await page.locator('.inspector-tabs-four button').nth(1).click()
   const canvas = page.locator('.preview-canvas-host canvas')
