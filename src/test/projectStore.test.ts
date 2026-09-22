@@ -34,8 +34,13 @@ describe('project store', () => {
   it('adds, edits and removes lights', () => {
     useProjectStore.getState().addLight('directional')
     const light = useProjectStore.getState().lighting.lights.at(-1)!
-    useProjectStore.getState().updateLight(light.id, { intensity: 2.5, direction: 45 })
+    useProjectStore.getState().updateLight(light.id, {
+      intensity: 2.5,
+      direction: 45,
+      handleVisible: false,
+    })
     expect(useProjectStore.getState().lighting.lights.at(-1)?.intensity).toBe(2.5)
+    expect(useProjectStore.getState().lighting.lights.at(-1)?.handleVisible).toBe(false)
 
     useProjectStore.getState().removeLight(light.id)
     expect(useProjectStore.getState().lighting.lights.some((item) => item.id === light.id)).toBe(false)

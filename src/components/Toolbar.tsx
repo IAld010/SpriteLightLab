@@ -1,5 +1,4 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { APP_VERSION } from '../version'
 import { parseProjectDocument } from '../domain/projectDocument'
 import { importPortableJson, importProjectZip } from '../services/projectIO'
 import { useEditorStore } from '../store/editorStore'
@@ -61,16 +60,6 @@ export function Toolbar({
 
   return (
     <header className="toolbar">
-      <div className="brand-block">
-        <div className="brand-mark" aria-hidden="true">
-          SL
-        </div>
-        <div>
-          <strong>Sprite Light Lab</strong>
-          <span>本地精灵整合与预览工作台 · v{APP_VERSION}</span>
-        </div>
-      </div>
-
       <div className="toolbar-actions">
         <button
           className="button button-primary"
@@ -87,6 +76,9 @@ export function Toolbar({
           data-testid="open-grid-import"
         >
           大图裁切
+        </button>
+        <button className="button" type="button" onClick={() => projectInput.current?.click()}>
+          导入项目包
         </button>
         <div className="demo-picker" ref={demoPickerRef}>
           <button
@@ -131,9 +123,6 @@ export function Toolbar({
             </div>
           )}
         </div>
-        <button className="button" type="button" onClick={() => projectInput.current?.click()}>
-          导入项目包
-        </button>
         <button
           type="button"
           className="button"

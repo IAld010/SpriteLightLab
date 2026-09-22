@@ -188,6 +188,17 @@ export function LightingPanel() {
 
           {selectedLight.type !== 'directional' && (
             <>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={selectedLight.handleVisible}
+                  aria-label={`显示 ${selectedLight.name} 画布手柄`}
+                  onChange={(event) =>
+                    updateLight(selectedLight.id, { handleVisible: event.target.checked })
+                  }
+                />
+                显示画布手柄
+              </label>
               <RangeField
                 label="棋盘 X"
                 min={0}

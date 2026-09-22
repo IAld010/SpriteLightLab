@@ -11,6 +11,7 @@ function light(type: LightSource['type'], overrides: Partial<LightSource> = {}):
     name: type,
     type,
     enabled: true,
+    handleVisible: true,
     color: '#ffffff',
     intensity: 1,
     x: 0.5,

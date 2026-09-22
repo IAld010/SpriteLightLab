@@ -299,12 +299,6 @@ export function CurveEditorDrawer({
               setDraggedKeyId(undefined)
             }}
           >
-            <defs>
-              <linearGradient id="curve-main-gradient" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0" stopColor="#6b9cff" />
-                <stop offset="1" stopColor="#b07cff" />
-              </linearGradient>
-            </defs>
             <rect
               x="0"
               y="0"

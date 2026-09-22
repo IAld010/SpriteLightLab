@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { normalizeHex, parsePaletteFile, serializeGpl, serializeHexPalette } from '../domain/palette'
 import { useEditorStore } from '../store/editorStore'
 import { activePaletteFromState, useProjectStore } from '../store/projectStore'
@@ -6,6 +6,11 @@ import { downloadText } from '../utils/download'
 
 export function PalettePanel() {
   const importInput = useRef<HTMLInputElement>(null)
+  const palettePickerRef = useRef<HTMLDivElement>(null)
+  const paletteTriggerRef = useRef<HTMLButtonElement>(null)
+  const paletteOptionRefs = useRef(new Map<string, HTMLButtonElement>())
+  const [paletteMenuOpen, setPaletteMenuOpen] = useState(false)
+  const [focusedPaletteId, setFocusedPaletteId] = useState<string>()
   const bundle = useEditorStore((state) => state.bundle)
   const palette = useProjectStore((state) => activePaletteFromState(state))
   const palettePresets = useProjectStore((state) => state.palettePresets)
@@ -27,11 +32,44 @@ export function PalettePanel() {
   const undo = useProjectStore((state) => state.undo)
   const redo = useProjectStore((state) => state.redo)
 
+  useEffect(() => {
+    if (!paletteMenuOpen) return
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (!palettePickerRef.current?.contains(event.target as Node)) {
+        setPaletteMenuOpen(false)
+      }
+    }
+    window.addEventListener('pointerdown', closeOnPointerDown)
+    return () => window.removeEventListener('pointerdown', closeOnPointerDown)
+  }, [paletteMenuOpen])
+
+  useEffect(() => {
+    if (!paletteMenuOpen || !focusedPaletteId) return
+    paletteOptionRefs.current.get(focusedPaletteId)?.focus()
+  }, [focusedPaletteId, paletteMenuOpen])
+
   if (!bundle || !palette) {
     return <div className="empty-list">导入素材后启用 Palette Swap。</div>
   }
 
   const exportColors = palette.entries.map((entry) => entry.target)
+  const openPaletteMenu = () => {
+    setFocusedPaletteId(activePaletteId)
+    setPaletteMenuOpen(true)
+  }
+  const movePaletteFocus = (direction: number) => {
+    const focusedIndex = Math.max(
+      0,
+      palettePresets.findIndex((preset) => preset.id === focusedPaletteId),
+    )
+    const targetIndex = (focusedIndex + direction + palettePresets.length) % palettePresets.length
+    setFocusedPaletteId(palettePresets[targetIndex]?.id ?? activePaletteId)
+  }
+  const choosePalette = (paletteId: string) => {
+    setActivePalette(paletteId)
+    setPaletteMenuOpen(false)
+    window.requestAnimationFrame(() => paletteTriggerRef.current?.focus())
+  }
 
   return (
     <div className="inspector-content palette-panel">
@@ -50,17 +88,87 @@ export function PalettePanel() {
           </span>
         </div>
         <div className="palette-toolbar">
-          <select
-            value={activePaletteId}
-            onChange={(event) => setActivePalette(event.target.value)}
-            aria-label="当前色板"
-          >
-            {palettePresets.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name}
-              </option>
-            ))}
-          </select>
+          <div className="palette-picker" ref={palettePickerRef}>
+            <button
+              ref={paletteTriggerRef}
+              type="button"
+              className={`palette-picker-trigger ${paletteMenuOpen ? 'is-open' : ''}`}
+              aria-label={`当前色板：${palette.name}`}
+              aria-haspopup="listbox"
+              aria-expanded={paletteMenuOpen}
+              aria-controls="palette-picker-listbox"
+              data-testid="palette-picker-trigger"
+              onClick={() => {
+                if (paletteMenuOpen) {
+                  setPaletteMenuOpen(false)
+                } else {
+                  openPaletteMenu()
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                  event.preventDefault()
+                  openPaletteMenu()
+                }
+              }}
+            >
+              <span>{palette.name}</span>
+              <span className="palette-picker-chevron" aria-hidden="true">⌄</span>
+            </button>
+            {paletteMenuOpen && (
+              <div
+                id="palette-picker-listbox"
+                className="palette-picker-menu"
+                role="listbox"
+                aria-label="色板列表"
+                data-testid="palette-picker-menu"
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault()
+                    movePaletteFocus(event.key === 'ArrowDown' ? 1 : -1)
+                  } else if (event.key === 'Home') {
+                    event.preventDefault()
+                    setFocusedPaletteId(palettePresets[0]?.id)
+                  } else if (event.key === 'End') {
+                    event.preventDefault()
+                    setFocusedPaletteId(palettePresets.at(-1)?.id)
+                  } else if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    if (focusedPaletteId) choosePalette(focusedPaletteId)
+                  } else if (event.key === 'Escape') {
+                    event.preventDefault()
+                    setPaletteMenuOpen(false)
+                    paletteTriggerRef.current?.focus()
+                  } else if (event.key === 'Tab') {
+                    setPaletteMenuOpen(false)
+                  }
+                }}
+              >
+                {palettePresets.map((preset) => {
+                  const selected = preset.id === activePaletteId
+                  return (
+                    <button
+                      key={preset.id}
+                      ref={(element) => {
+                        if (element) paletteOptionRefs.current.set(preset.id, element)
+                        else paletteOptionRefs.current.delete(preset.id)
+                      }}
+                      type="button"
+                      className={`palette-picker-option ${selected ? 'is-selected' : ''}`}
+                      role="option"
+                      aria-selected={selected}
+                      tabIndex={preset.id === focusedPaletteId ? 0 : -1}
+                      onFocus={() => setFocusedPaletteId(preset.id)}
+                      onClick={() => choosePalette(preset.id)}
+                    >
+                      <span className="palette-picker-option-name">{preset.name}</span>
+                      {selected && <span className="palette-picker-option-state">当前</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
           <button type="button" className="mini-button" onClick={() => addPalette()}>
             +
           </button>

@@ -20,8 +20,30 @@ test('toolbar opens the import guide dialog without a project-library banner', a
   await expect(dialog).toContainText('walk_0001_n.png')
   await expect(dialog).toContainText('project.json')
   await expect(dialog).toContainText('assets/')
+  await expect(dialog.locator('.import-guide-step')).toHaveCount(3)
+  await expect(dialog.locator('.import-guide-step-index')).toHaveText(['01', '02', '03'])
+  await expect(dialog.locator('.import-guide-dialog-body')).toHaveCSS('grid-template-columns', /1fr|[0-9]+px/)
   await dialog.locator('header .mini-button').click()
   await expect(dialog).toHaveCount(0)
+})
+
+test('toolbar removes branding and orders project actions by workflow', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('.toolbar .brand-block')).toHaveCount(0)
+  const actionLabels = await page.locator('.toolbar-actions').evaluate((toolbar) =>
+    Array.from(toolbar.children)
+      .filter((element) => element.matches('button, .demo-picker'))
+      .map((element) => (element.textContent ?? '').replace(/\s+/g, ' ').trim()),
+  )
+
+  expect(actionLabels.slice(0, 4)).toEqual([
+    '选择素材文件',
+    '大图裁切',
+    '导入项目包',
+    '示例项目 ▾',
+  ])
+  expect(actionLabels[4]).toMatch(/^项目库/)
+  expect(actionLabels[5]).toBe('? 导入说明')
 })
 
 test('demo picker exposes three example projects', async ({ page }) => {
@@ -283,6 +305,32 @@ test('palette, lighting and ZIP project pack work together', async ({ page }) =>
   await page.screenshot({ path: path.join(outputDirectory, 'sprite-light-lab-palette-light.png'), fullPage: true })
 })
 
+test('palette picker uses the in-app menu for mouse and keyboard selection', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.locator('.inspector-tabs-four button').nth(0).click()
+
+  await page.locator('.palette-toolbar .mini-button').first().click()
+  const trigger = page.getByTestId('palette-picker-trigger')
+  await expect(trigger).toContainText('配色 2')
+
+  await trigger.click()
+  const menu = page.getByTestId('palette-picker-menu')
+  await expect(menu).toBeVisible()
+  await expect(menu.getByRole('option')).toHaveCount(2)
+  await menu.getByRole('option', { name: '默认' }).click()
+  await expect(menu).toHaveCount(0)
+  await expect(trigger).toContainText('默认')
+
+  await trigger.press('ArrowDown')
+  await expect(menu).toBeVisible()
+  await page.keyboard.press('ArrowDown')
+  await expect(menu.getByRole('option', { name: '配色 2' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(menu).toHaveCount(0)
+  await expect(trigger).toContainText('配色 2')
+})
+
 test('PWA starts offline after the first successful visit', async ({ page, context }) => {
   await page.goto('/')
   await page.evaluate(async () => {
@@ -291,7 +339,7 @@ test('PWA starts offline after the first successful visit', async ({ page, conte
   await page.reload()
   await context.setOffline(true)
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect(page.locator('.brand-block strong')).toHaveText('Sprite Light Lab')
+  await expect(page.getByTestId('open-grid-import')).toBeVisible()
   await context.setOffline(false)
 })
 test('full color mode exposes color rules and global adjustments', async ({ page }) => {
@@ -727,6 +775,31 @@ test('specular strength changes the rendered lighting output', async ({ page }) 
     path: path.join(outputDirectory, 'sprite-light-lab-directional-lighting.png'),
     fullPage: true,
   })
+})
+
+test('point and spot canvas handles can be hidden without disabling their lights', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.locator('.inspector-tabs-four button').nth(1).click()
+
+  const lightRows = page.locator('.light-row')
+  await lightRows.nth(1).locator('.light-main').click()
+  const pointToggle = page.getByRole('checkbox', { name: '显示 暖色点光 画布手柄' })
+  await expect(page.locator('.light-position-point .light-handle')).toBeVisible()
+  await expect(lightRows.nth(1).locator('input[type="checkbox"]')).toBeChecked()
+  await pointToggle.uncheck()
+  await expect(page.locator('.light-position-point .light-handle')).toHaveCount(0)
+  await expect(lightRows.nth(1).locator('input[type="checkbox"]')).toBeChecked()
+  await pointToggle.check()
+  await expect(page.locator('.light-position-point .light-handle')).toBeVisible()
+
+  await page.locator('.add-light-row .mini-button').nth(2).click()
+  await lightRows.nth(2).locator('.light-main').click()
+  const spotToggle = page.getByRole('checkbox', { name: '显示 聚光 3 画布手柄' })
+  await expect(page.locator('.light-position-spot .light-handle')).toBeVisible()
+  await spotToggle.uncheck()
+  await expect(page.locator('.light-position-spot .light-handle')).toHaveCount(0)
+  await expect(page.locator('.light-position-point .light-handle')).toBeVisible()
 })
 
 test.describe('high-density light coordinate alignment', () => {

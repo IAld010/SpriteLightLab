@@ -213,6 +213,8 @@ export interface LightSource {
   name: string
   type: LightType
   enabled: boolean
+  /** Whether this light's canvas position control is visible. */
+  handleVisible: boolean
   color: string
   intensity: number
   /**

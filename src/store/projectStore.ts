@@ -289,6 +289,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         name: type === 'directional' ? `方向光 ${count}` : type === 'point' ? `点光 ${count}` : `聚光 ${count}`,
         type,
         enabled: true,
+        handleVisible: true,
         color: type === 'point' ? '#ffb46b' : '#ffffff',
         intensity: 1,
         x: 0.5,

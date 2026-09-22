@@ -34,7 +34,7 @@ export function LightOverlay() {
   }
 
   const positionedLights = lighting.lights.filter(
-    (light) => light.enabled && light.type !== 'directional',
+    (light) => light.enabled && light.handleVisible && light.type !== 'directional',
   )
 
   return (
