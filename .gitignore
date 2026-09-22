@@ -26,3 +26,9 @@ playwright-report/
 test-results/
 coverage/
 .runtime/
+
+# Launcher build outputs
+launcher/**/bin/
+launcher/**/obj/
+launcher/publish/
+launcher/SpriteLightLab.Launcher/Resources/wwwroot.zip
