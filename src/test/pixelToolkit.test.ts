@@ -1,5 +1,6 @@
 ﻿import { describe, expect, it } from 'vitest'
 import {
+  constrainImageDataToRect,
   floodFillPixels,
   getLinePixels,
   setPixel,
@@ -33,6 +34,20 @@ describe('Piskel-adapted pixel toolkit', () => {
     expect(Array.from(image.data.slice((2 * 8 + 2) * 4, (2 * 8 + 2) * 4 + 4))).toEqual([255, 0, 0, 255])
     expect(Array.from(image.data.slice((2 * 8 + 3) * 4, (2 * 8 + 3) * 4 + 4))).toEqual([255, 0, 0, 255])
     expect(Array.from(image.data.slice((4 * 8 + 4) * 4, (4 * 8 + 4) * 4 + 4))).toEqual([0, 0, 0, 0])
+  })
+
+  it('keeps all pixels outside the selection unchanged', () => {
+    const original = makeImageData(4, 4)
+    const modified = makeImageData(4, 4)
+    for (let index = 0; index < modified.data.length; index += 4) {
+      modified.data.set([255, 0, 0, 255], index)
+    }
+    constrainImageDataToRect(original, modified, { x: 1, y: 1, width: 2, height: 2 })
+    expect(Array.from(modified.data.slice((1 * 4 + 1) * 4, (1 * 4 + 1) * 4 + 4))).toEqual([255, 0, 0, 255])
+    const firstPixel = 0
+    const lastPixel = (3 * 4 + 3) * 4
+    expect(Array.from(modified.data.slice(firstPixel, firstPixel + 4))).toEqual([0, 0, 0, 0])
+    expect(Array.from(modified.data.slice(lastPixel, lastPixel + 4))).toEqual([0, 0, 0, 0])
   })
 
   it('flood fills only the connected target-color region', () => {

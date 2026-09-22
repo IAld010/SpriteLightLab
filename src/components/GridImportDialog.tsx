@@ -15,6 +15,7 @@ import { t } from '../i18n'
 
 interface GridImportDialogProps {
   onClose: () => void
+  onBeforeImport: () => Promise<void>
 }
 
 const DEFAULT_GRID: GridImportConfig = {
@@ -115,7 +116,7 @@ function GridPreview({
   )
 }
 
-export function GridImportDialog({ onClose }: GridImportDialogProps) {
+export function GridImportDialog({ onClose, onBeforeImport }: GridImportDialogProps) {
   const importGridFiles = useEditorStore((state) => state.importGridFiles)
   const importRegionFiles = useEditorStore((state) => state.importRegionFiles)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
@@ -219,6 +220,12 @@ export function GridImportDialog({ onClose }: GridImportDialogProps) {
       return
     }
     setBusy(true)
+    try {
+      await onBeforeImport()
+    } catch {
+      setBusy(false)
+      return
+    }
     const imported = cropMode === 'grid'
       ? await importGridFiles(colorFile, normalFile, config)
       : await importRegionFiles(colorFile, normalFile, regionConfig)

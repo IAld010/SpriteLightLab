@@ -11,6 +11,7 @@ interface ToolbarProps {
   onOpenLibrary: () => void
   onOpenImportGuide: () => void
   onOpenProjectEditor: () => void
+  onBeforeProjectChange: () => Promise<void>
   projectEditorAvailable: boolean
   projectCount: number
 }
@@ -21,6 +22,7 @@ export function Toolbar({
   onOpenLibrary,
   onOpenImportGuide,
   onOpenProjectEditor,
+  onBeforeProjectChange,
   projectEditorAvailable,
   projectCount,
 }: ToolbarProps) {
@@ -61,7 +63,14 @@ export function Toolbar({
 
   const chooseDemo = (load: () => Promise<void>) => {
     setDemoMenuOpen(false)
-    void load()
+    void (async () => {
+      try {
+        await onBeforeProjectChange()
+        await load()
+      } catch {
+        // A failed pre-switch save is already reported by the caller.
+      }
+    })()
   }
 
   return (
@@ -197,9 +206,11 @@ export function Toolbar({
           type="file"
           accept=".png,.json,image/png,application/json"
           multiple
-          onChange={(event) => {
-            onPickFiles(Array.from(event.target.files ?? []))
+          onChange={async (event) => {
+            const files = Array.from(event.target.files ?? [])
             event.target.value = ''
+            await onBeforeProjectChange()
+            onPickFiles(files)
           }}
         />
       </div>

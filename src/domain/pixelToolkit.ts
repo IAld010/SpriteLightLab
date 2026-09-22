@@ -198,6 +198,29 @@ export function drawEllipsePixels(
   }
 }
 
+export function constrainImageDataToRect(
+  original: ImageData,
+  modified: ImageData,
+  rect: { x: number; y: number; width: number; height: number },
+): ImageData {
+  if (original.width !== modified.width || original.height !== modified.height) return modified
+  const x0 = Math.max(0, Math.floor(rect.x))
+  const y0 = Math.max(0, Math.floor(rect.y))
+  const x1 = Math.min(modified.width, Math.ceil(rect.x + rect.width))
+  const y1 = Math.min(modified.height, Math.ceil(rect.y + rect.height))
+  for (let y = 0; y < modified.height; y += 1) {
+    for (let x = 0; x < modified.width; x += 1) {
+      if (x >= x0 && x < x1 && y >= y0 && y < y1) continue
+      const offset = (y * modified.width + x) * 4
+      modified.data[offset] = original.data[offset]
+      modified.data[offset + 1] = original.data[offset + 1]
+      modified.data[offset + 2] = original.data[offset + 2]
+      modified.data[offset + 3] = original.data[offset + 3]
+    }
+  }
+  return modified
+}
+
 export function colorAt(imageData: ImageData, point: PixelPoint): RgbaColor | undefined {
   if (point.x < 0 || point.y < 0 || point.x >= imageData.width || point.y >= imageData.height) {
     return undefined

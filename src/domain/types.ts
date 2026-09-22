@@ -283,6 +283,30 @@ export interface ProjectDocumentV2 extends Omit<ProjectDocumentV1, 'version'> {
   regionConfig?: RegionImportConfig
 }
 
+export type CameraShakePreset = 'light' | 'heavy' | 'explosion' | 'landing' | 'custom'
+
+export interface CameraShakePayload {
+  preset: CameraShakePreset
+  strength: number
+  durationMs: number
+  frequency: number
+  decay: number
+  xWeight: number
+  yWeight: number
+  rotationWeight: number
+  scaleWeight: number
+  seed: number
+}
+
+export interface ActionFrameEvent {
+  id: string
+  actionId: string
+  frameId: string
+  type: 'camera-shake'
+  enabled: boolean
+  payload: CameraShakePayload
+}
+
 export type RefinementLayerKind = 'raster' | 'effect' | 'helper'
 export type RefinementBlendMode = 'normal' | 'add' | 'multiply' | 'screen'
 
@@ -340,6 +364,7 @@ export interface RefinementProjectState {
 export interface ProjectDocumentV3 extends Omit<ProjectDocumentV2, 'version'> {
   version: 3
   refinements: FrameRefinement[]
+  frameEvents: ActionFrameEvent[]
 }
 
 export type ProjectDocument = ProjectDocumentV1 | ProjectDocumentV2 | ProjectDocumentV3

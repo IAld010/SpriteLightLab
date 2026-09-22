@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { getCurrentFrame, useEditorStore } from '../store/editorStore'
 import { AnchorCalibrationPanel } from './AnchorCalibrationPanel'
 import { FrameNavigator } from './FrameNavigator'
+import { FrameEventPanel } from './FrameEventPanel'
 import { LightingPanel } from './LightingPanel'
 import { ProjectPanel } from './ProjectPanel'
 import { PalettePanel } from './PalettePanel'
@@ -10,11 +11,12 @@ import { t } from '../i18n'
 interface InspectorPanelProps {
   rendererStatus: string
   onOpenLibrary: () => void
+  onBeforeProjectChange: () => Promise<void>
 }
 
 type InspectorTab = 'palette' | 'lighting' | 'anchor' | 'frame' | 'project'
 
-export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanelProps) {
+export function InspectorPanel({ rendererStatus, onOpenLibrary, onBeforeProjectChange }: InspectorPanelProps) {
   const [tab, setTab] = useState<InspectorTab>('project')
   const bundle = useEditorStore((state) => state.bundle)
   const currentFrame = useEditorStore((state) => getCurrentFrame(state))
@@ -81,6 +83,7 @@ export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanel
       {tab === 'frame' && (
         <div className="inspector-content">
           <FrameNavigator />
+          <FrameEventPanel />
           <section className="inspector-section">
             <div className="eyebrow">{t('当前帧')}</div>
             <div className="selected-frame-card">
@@ -162,7 +165,7 @@ export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanel
         </div>
       )}
 
-      {tab === 'project' && <ProjectPanel rendererStatus={rendererStatus} onOpenLibrary={onOpenLibrary} />}
+      {tab === 'project' && <ProjectPanel rendererStatus={rendererStatus} onOpenLibrary={onOpenLibrary} onBeforeProjectChange={onBeforeProjectChange} />}
     </aside>
   )
 }

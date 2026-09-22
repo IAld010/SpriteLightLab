@@ -394,8 +394,22 @@ export const useRefinementStore = create<RefinementState>((set, get) => {
 
     removeLayer: (sourceFrameId, layerId) => {
       const refinement = get().refinements[sourceFrameId]
-      if (!refinement || refinement.layers.length <= 1) return
+      if (!refinement) return
       commit()
+      if (refinement.layers.length === 1) {
+        set((state) => {
+          const refinements = { ...state.refinements }
+          delete refinements[sourceFrameId]
+          return {
+            refinements,
+            assets: Object.fromEntries(
+              Object.entries(state.assets).filter(([, asset]) => asset.frameId !== sourceFrameId),
+            ),
+            selectedLayerId: undefined,
+          }
+        })
+        return
+      }
       set((state) => {
         const removed = removeRefinementLayer(refinement, layerId)
         const remainingAssetIds = new Set(

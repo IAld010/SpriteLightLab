@@ -27,6 +27,7 @@ import { useProjectLibraryStore } from './store/projectLibraryStore'
 import { isExternalFileDrag } from './utils/dragAndDrop'
 import { useProjectStore } from './store/projectStore'
 import { useRefinementStore } from './store/refinementStore'
+import { useFrameEventStore } from './store/frameEventStore'
 import { useI18n } from './i18n'
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -75,6 +76,7 @@ export default function App() {
   const action = useEditorStore((state) => getSelectedAction(state))
   const settings = useEditorStore((state) => state.settings)
   const refinementDirty = useRefinementStore((state) => state.dirty)
+  const frameEventDirty = useFrameEventStore((state) => state.dirty)
 
   const projects = useProjectLibraryStore((state) => state.projects)
   const activeProjectId = useProjectLibraryStore((state) => state.activeProjectId)
@@ -123,7 +125,10 @@ export default function App() {
           renderPreferences: project.renderPreferences,
         },
         editor.settings,
-        { refinements: Object.values(refinement.refinements) },
+        {
+          refinements: Object.values(refinement.refinements),
+          frameEvents: useFrameEventStore.getState().events,
+        },
       )
       const summary = await saveProject({
         id: editor.projectId,
@@ -134,12 +139,15 @@ export default function App() {
       })
       upsertProject(summary, true)
       useRefinementStore.getState().markClean()
+      useFrameEventStore.getState().markClean()
       setSaveStatus('saved')
+      setNotice({ tone: 'success', message: '项目已保存。' })
     } catch (error) {
       setSaveStatus('failed')
+      setNotice({ tone: 'error', message: '保存失败，请重试。' })
       throw error
     }
-  }, [upsertProject])
+  }, [setNotice, upsertProject])
 
   const flushCurrentProject = useCallback(async (): Promise<void> => {
     saveQueue.current = saveQueue.current.catch(() => undefined).then(persistCurrentProject)
@@ -202,7 +210,7 @@ export default function App() {
       saveQueue.current = saveQueue.current.catch(() => undefined).then(persistCurrentProject)
     }, 700)
     return () => window.clearTimeout(timeout)
-  }, [bundle, persistCurrentProject, projectCreatedAt, projectId, refinementDirty, settings])
+  }, [bundle, frameEventDirty, persistCurrentProject, projectCreatedAt, projectId, refinementDirty, settings])
 
   useEffect(() => {
     if (hydrated.current && projectId) {
@@ -403,10 +411,13 @@ export default function App() {
     >
       {!showProjectEditor && (<Toolbar
           onPickFiles={(files) => void prepareLocalImport(files)}
-          onOpenGridImport={() => setShowGridImport(true)}
+          onOpenGridImport={() => {
+            void flushCurrentProject().then(() => setShowGridImport(true)).catch(() => undefined)
+          }}
           onOpenLibrary={() => setShowLibrary(true)}
           onOpenImportGuide={() => setShowImportGuide(true)}
           onOpenProjectEditor={() => { setShowLibrary(false); setShowProjectEditor(true) }}
+          onBeforeProjectChange={flushCurrentProject}
           projectEditorAvailable={Boolean(bundle)}
           projectCount={projects.length}
         />      )}
@@ -417,9 +428,11 @@ export default function App() {
           bundle={matchingBundle}
           onCancel={() => setMatchingBundle(undefined)}
           onConfirm={(matchedBundle) => {
-            commitImportedBundle(matchedBundle)
-            setMatchingBundle(undefined)
-            setShowLibrary(false)
+            void flushCurrentProject().then(() => {
+              commitImportedBundle(matchedBundle)
+              setMatchingBundle(undefined)
+              setShowLibrary(false)
+            }).catch(() => undefined)
           }}
         />
       ) : showLibrary ? (
@@ -446,6 +459,7 @@ export default function App() {
           <InspectorPanel
             rendererStatus={rendererStatus}
             onOpenLibrary={() => setShowLibrary(true)}
+            onBeforeProjectChange={flushCurrentProject}
           />
           <section className="center-workspace">
             <PreviewStage onStatusChange={setRendererStatus} />
@@ -454,7 +468,7 @@ export default function App() {
         </main>
       )}
 
-      {showGridImport && <GridImportDialog onClose={() => setShowGridImport(false)} />}
+      {showGridImport && <GridImportDialog onClose={() => setShowGridImport(false)} onBeforeImport={flushCurrentProject} />}
       {showImportGuide && <ImportGuideDialog onClose={() => setShowImportGuide(false)} />}
       {(isImporting || isPreparingImport || isDragging) && (
         <div className={`drop-overlay ${isDragging ? 'is-dragging' : ''}`}>

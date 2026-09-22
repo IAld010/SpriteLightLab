@@ -136,7 +136,7 @@ export function ProjectEditorWorkspace({ saveStatus, onSave, onExit }: ProjectEd
             <button type="button" className={language === 'en' ? 'is-active' : ''} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>English</button>
           </div>
           <button type="button" className="editor-toolbar-button" onClick={onExit}>{t('返回预览')}</button>
-          <button type="button" className="editor-toolbar-button primary" onClick={onSave}>{t('保存')}</button>
+          <button type="button" className="editor-toolbar-button primary" onClick={onSave} disabled={saveStatus === 'saving'} data-testid="editor-save-button">{saveStatus === 'saving' ? t('保存中…') : t('保存')}</button>
         </div>
       </footer>
     </main>

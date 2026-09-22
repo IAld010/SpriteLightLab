@@ -3,10 +3,12 @@ import { LightOverlay } from './LightOverlay'
 import type { PreviewBackground, PreviewTextureMode } from '../domain/types'
 import { PreviewRenderer } from '../renderer/PreviewRenderer'
 import { buildRefinementOverlay } from '../renderer/RefinementRenderer'
+import { CameraShake } from '../renderer/CameraShake'
 import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
 import { resolveFrameAlignment } from '../domain/alignment'
 import { activePaletteFromState, useProjectStore } from '../store/projectStore'
 import { useRefinementStore } from '../store/refinementStore'
+import { eventsForFrame, useFrameEventStore } from '../store/frameEventStore'
 import { t } from '../i18n'
 
 const EMPTY_PALETTE_SOURCES: string[] = []
@@ -18,6 +20,7 @@ interface PreviewStageProps {
 export function PreviewStage({ onStatusChange }: PreviewStageProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const rendererRef = useRef<PreviewRenderer | undefined>(undefined)
+  const cameraShakeRef = useRef(new CameraShake())
   const pointerState = useRef<
     { id: number; x: number; y: number; panX: number; panY: number } | undefined
   >(undefined)
@@ -47,6 +50,8 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
   )
   const refinementAssets = useRefinementStore((state) => state.assets)
   const selectedAction = useEditorStore((state) => getSelectedAction(state))
+  const isPlaying = useEditorStore((state) => state.isPlaying)
+  const frameEvents = useFrameEventStore((state) => state.events)
   const paletteMode = bundle?.paletteMode ?? 'fullcolor'
   const paletteSources = bundle?.paletteSources ?? EMPTY_PALETTE_SOURCES
   const palette = useProjectStore((state) => activePaletteFromState(state))
@@ -137,6 +142,37 @@ export function PreviewStage({ onStatusChange }: PreviewStageProps) {
       ),
     )
   }, [actionAlignment, currentFrame, frameAlignment, readyVersion, textureMode])
+
+  useEffect(() => {
+    const host = hostRef.current
+    const shake = cameraShakeRef.current
+    if (!host || !currentFrame || !selectedAction || !isPlaying) {
+      shake.reset()
+      if (host) host.style.transform = ''
+      return
+    }
+    for (const event of eventsForFrame(frameEvents, selectedAction.id, currentFrame.id)) {
+      if (event.enabled) shake.trigger(event.payload)
+    }
+    let frameHandle = 0
+    let lastTime = performance.now()
+    const renderShake = (now: number) => {
+      const delta = Math.min(50, now - lastTime)
+      lastTime = now
+      const transform = shake.update(delta)
+      if (transform) {
+        host.style.transform = `translate(${transform.x}px, ${transform.y}px) rotate(${transform.rotation}rad) scale(${transform.scale})`
+        frameHandle = requestAnimationFrame(renderShake)
+      } else {
+        host.style.transform = ''
+      }
+    }
+    frameHandle = requestAnimationFrame(renderShake)
+    return () => {
+      cancelAnimationFrame(frameHandle)
+      host.style.transform = ''
+    }
+  }, [currentFrame, frameEvents, isPlaying, selectedAction])
 
   useEffect(() => {
     const renderer = rendererRef.current

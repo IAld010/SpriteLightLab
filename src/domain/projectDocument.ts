@@ -1,5 +1,6 @@
 import { createDefaultLighting, normalizeLightingState } from './defaults'
 import type {
+  ActionFrameEvent,
   AssetBundle,
   EditorSettings,
   GridImportConfig,
@@ -7,6 +8,7 @@ import type {
   PalettePreset,
   FrameRefinement,
   ProjectDocument,
+  RefinementAssetRecord,
   ProjectDocumentV3,
   RegionImportConfig,
   RenderPreferences,
@@ -24,7 +26,7 @@ export function createProjectDocument(
   bundle: AssetBundle,
   state: ProjectStateSnapshot,
   settings: EditorSettings,
-  options: { gridConfig?: GridImportConfig; regionConfig?: RegionImportConfig; refinements?: FrameRefinement[] } = {},
+  options: { gridConfig?: GridImportConfig; regionConfig?: RegionImportConfig; refinements?: FrameRefinement[]; frameEvents?: ActionFrameEvent[] } = {},
 ): ProjectDocumentV3 {
   return {
     version: 3,
@@ -57,6 +59,7 @@ export function createProjectDocument(
     lighting: state.lighting,
     renderPreferences: state.renderPreferences,
     refinements: options.refinements ?? [],
+    frameEvents: options.frameEvents ?? [],
     settings: { ...settings, showRefinement: settings.showRefinement ?? true },
     ...(bundle.gridConfig || options.gridConfig ? { gridConfig: bundle.gridConfig ?? options.gridConfig } : {}),
     ...(bundle.regionConfig || options.regionConfig ? { regionConfig: bundle.regionConfig ?? options.regionConfig } : {}),
@@ -65,12 +68,13 @@ export function createProjectDocument(
 
 export function upgradeProjectDocument(document: ProjectDocument): ProjectDocumentV3 {
   if (document.version === 3) {
-    return { ...document, refinements: document.refinements ?? [] }
+    return { ...document, refinements: document.refinements ?? [], frameEvents: document.frameEvents ?? [] }
   }
   return {
     ...document,
     version: 3,
     refinements: [],
+    frameEvents: [],
   }
 }
 
@@ -114,6 +118,55 @@ export function parseProjectDocument(content: string): ProjectDocumentV3 {
   return {
     ...upgraded,
     refinements: Array.isArray(parsed.refinements) ? upgraded.refinements : [],
+  }
+}
+
+export interface RemappedProjectEditingState {
+  refinements: FrameRefinement[]
+  refinementAssets: RefinementAssetRecord[]
+  frameEvents: ActionFrameEvent[]
+}
+
+export function remapProjectEditingState(
+  document: ProjectDocument,
+  bundle: AssetBundle,
+  state: RemappedProjectEditingState,
+): RemappedProjectEditingState {
+  if (document.version !== 3) return state
+  const newFrameByName = new Map(bundle.frames.map((frame) => [frame.name, frame]))
+  const frameIdMap = new Map<string, string>()
+  for (const oldFrame of document.frames) {
+    const newFrame = newFrameByName.get(oldFrame.name)
+    if (newFrame) frameIdMap.set(oldFrame.id, newFrame.id)
+  }
+  const newActionByName = new Map(bundle.animations.map((animation) => [animation.name, animation]))
+  const actionIdMap = new Map<string, string>()
+  for (const oldAction of document.animations) {
+    const newAction = newActionByName.get(oldAction.name)
+    if (newAction) actionIdMap.set(oldAction.id, newAction.id)
+  }
+
+  return {
+    refinements: state.refinements.map((refinement) => {
+      const sourceFrameId = frameIdMap.get(refinement.sourceFrameId) ?? refinement.sourceFrameId
+      return {
+        ...refinement,
+        sourceFrameId,
+        cels: refinement.cels.map((cel) => ({
+          ...cel,
+          frameId: sourceFrameId,
+        })),
+      }
+    }),
+    refinementAssets: state.refinementAssets.map((asset) => ({
+      ...asset,
+      frameId: frameIdMap.get(asset.frameId) ?? asset.frameId,
+    })),
+    frameEvents: state.frameEvents.map((event) => ({
+      ...event,
+      actionId: actionIdMap.get(event.actionId) ?? event.actionId,
+      frameId: frameIdMap.get(event.frameId) ?? event.frameId,
+    })),
   }
 }
 

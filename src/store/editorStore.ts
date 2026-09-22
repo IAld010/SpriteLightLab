@@ -6,9 +6,11 @@ import { importProjectZip } from '../services/projectIO'
 import { createProjectId } from '../services/projectPersistence'
 import { useProjectStore } from './projectStore'
 import { useRefinementStore } from './refinementStore'
+import { useFrameEventStore } from './frameEventStore'
 import {
   applyProjectDocumentToBundle,
   projectStateFromDocument,
+  remapProjectEditingState,
 } from '../domain/projectDocument'
 import {
   ImportError,
@@ -244,6 +246,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       },
     })
     useRefinementStore.getState().initialize(projectId, [], [])
+    useFrameEventStore.getState().initialize([])
   },
   importLocalFiles: async (files) => {
     if (files.length === 0) {
@@ -256,6 +259,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const projectId = createProjectId()
       const projectCreatedAt = new Date().toISOString()
       useRefinementStore.getState().initialize(projectId, [], [])
+    useFrameEventStore.getState().initialize([])
       useProjectStore.getState().initializeFromBundle(bundle)
       set({
         bundle,
@@ -291,6 +295,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const projectId = createProjectId()
       const projectCreatedAt = new Date().toISOString()
       useRefinementStore.getState().initialize(projectId, [], [])
+    useFrameEventStore.getState().initialize([])
       useProjectStore.getState().initializeFromBundle(bundle)
       set({
         bundle,
@@ -333,14 +338,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             ? await importGridAssetFiles(cropFiles.colorFile, cropFiles.normalFile, document.gridConfig)
             : await importAssetFiles(files)
       const bundle = applyProjectDocumentToBundle(imported, document)
+      const editingState = remapProjectEditingState(document, bundle, {
+        refinements: document.version === 3 ? document.refinements : [],
+        refinementAssets: refinementAssets ?? [],
+        frameEvents: document.version === 3 ? document.frameEvents ?? [] : [],
+      })
       useProjectStore.getState().applyProjectState(projectStateFromDocument(document))
       const warnings = collectCurrentWarnings(bundle)
       const projectId = session?.projectId ?? createProjectId()
       useRefinementStore.getState().initialize(
         projectId,
-        document.version === 3 ? document.refinements : [],
-        refinementAssets ?? [],
+        editingState.refinements,
+        editingState.refinementAssets,
       )
+      useFrameEventStore.getState().initialize(editingState.frameEvents)
       set({
         bundle,
         projectId,
@@ -372,12 +383,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return
     }
     const nextBundle = applyProjectDocumentToBundle(bundle, document)
+    const editingState = remapProjectEditingState(document, nextBundle, {
+      refinements: document.version === 3 ? document.refinements : [],
+      refinementAssets: Object.values(useRefinementStore.getState().assets),
+      frameEvents: document.version === 3 ? document.frameEvents ?? [] : [],
+    })
     useProjectStore.getState().applyProjectState(projectStateFromDocument(document))
     useRefinementStore.getState().initialize(
       get().projectId,
-      document.version === 3 ? document.refinements : [],
-      [],
+      editingState.refinements,
+      editingState.refinementAssets,
     )
+    useFrameEventStore.getState().initialize(editingState.frameEvents)
     set({
       bundle: nextBundle,
       warnings: collectCurrentWarnings(nextBundle),
@@ -392,6 +409,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   clearProject: () => {
     useRefinementStore.getState().reset()
+    useFrameEventStore.getState().reset()
     set({
       bundle: undefined,
       projectId: undefined,
@@ -664,6 +682,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const projectId = createProjectId()
       const projectCreatedAt = new Date().toISOString()
       useRefinementStore.getState().initialize(projectId, [], [])
+    useFrameEventStore.getState().initialize([])
       useProjectStore.getState().initializeFromBundle(bundle)
       set({
         bundle,

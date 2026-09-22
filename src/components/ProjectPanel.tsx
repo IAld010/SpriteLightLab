@@ -16,15 +16,17 @@ import { ActionManager } from './ActionManager'
 import { ImportRulesPanel } from './ImportRulesPanel'
 import { useProjectStore } from '../store/projectStore'
 import { getRefinementProjectState } from '../store/refinementStore'
+import { getFrameEventProjectState } from '../store/frameEventStore'
 import { downloadBlob, downloadText } from '../utils/download'
 import { t } from '../i18n'
 
 interface ProjectPanelProps {
   rendererStatus: string
   onOpenLibrary: () => void
+  onBeforeProjectChange: () => Promise<void>
 }
 
-export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProps) {
+export function ProjectPanel({ rendererStatus, onOpenLibrary, onBeforeProjectChange }: ProjectPanelProps) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<string>()
   const bundle = useEditorStore((state) => state.bundle)
@@ -54,7 +56,10 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
         renderPreferences,
       },
       settings,
-      { refinements: getRefinementProjectState().refinements },
+      {
+        refinements: getRefinementProjectState().refinements,
+        frameEvents: getFrameEventProjectState(),
+      },
     )
   }
 
@@ -215,6 +220,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
                 return
               }
               try {
+                await onBeforeProjectChange()
                 if (file.name.toLowerCase().endsWith('.zip')) {
                   const portable = await importProjectZip(await file.arrayBuffer())
                   await importProjectFiles(portable.files, portable.document, undefined, portable.refinementAssets)

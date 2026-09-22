@@ -1,6 +1,7 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DrawingToolRail } from './DrawingToolRail'
 import {
+  constrainImageDataToRect,
   drawEllipsePixels,
   drawLinePixels,
   drawRectanglePixels,
@@ -23,6 +24,7 @@ interface PointerState {
   last: PixelPoint
   snapshot?: ImageData
   imageData?: ImageData
+  strokePoints?: PixelPoint[]
   selectionPixels?: ImageData
   moved: boolean
 }
@@ -189,10 +191,17 @@ export function DrawingCanvas() {
     }
     if (selection) {
       context.save()
-      context.strokeStyle = '#ffffff'
-      context.lineWidth = 1 / viewScale
-      context.setLineDash([4 / viewScale, 3 / viewScale])
-      context.strokeRect(selection.x, selection.y, Math.max(0, selection.width - 1), Math.max(0, selection.height - 1))
+      context.fillStyle = 'rgba(10, 132, 255, 0.16)'
+      context.fillRect(selection.x, selection.y, selection.width, selection.height)
+      context.strokeStyle = '#0a84ff'
+      context.lineWidth = 2 / viewScale
+      context.setLineDash([6 / viewScale, 4 / viewScale])
+      context.strokeRect(
+        selection.x + 1 / viewScale,
+        selection.y + 1 / viewScale,
+        Math.max(0, selection.width - 2 / viewScale),
+        Math.max(0, selection.height - 2 / viewScale),
+      )
       context.restore()
     }
     if (cursor && (tool === 'pencil' || tool === 'eraser')) {
@@ -322,7 +331,10 @@ export function DrawingCanvas() {
     event.currentTarget.setPointerCapture(event.pointerId)
     const pointer: PointerState = { id: event.pointerId, tool: activeTool, start: point, last: point, moved: false }
     if (activeTool === 'pencil' || activeTool === 'eraser') {
-      const imageData = context.getImageData(0, 0, layerCanvasRef.current.width, layerCanvasRef.current.height)
+      const original = context.getImageData(0, 0, layerCanvasRef.current.width, layerCanvasRef.current.height)
+      const imageData = new ImageData(new Uint8ClampedArray(original.data), original.width, original.height)
+      pointer.snapshot = original
+      pointer.strokePoints = [point]
       drawLinePixels(
         imageData,
         point,
@@ -330,6 +342,7 @@ export function DrawingCanvas() {
         brushSize,
         activeTool === 'eraser' ? { r: 0, g: 0, b: 0, a: 0 } : hexToRgba(primaryColor),
       )
+      if (selection) constrainImageDataToRect(original, imageData, selection)
       context.putImageData(imageData, 0, 0)
       pointer.imageData = imageData
       setDrawVersion((value) => value + 1)
@@ -341,8 +354,10 @@ export function DrawingCanvas() {
       pointer.snapshot = context.getImageData(0, 0, layerCanvasRef.current.width, layerCanvasRef.current.height)
       pointer.selectionPixels = context.getImageData(selection.x, selection.y, selection.width, selection.height)
     } else if (activeTool === 'bucket') {
-      const imageData = context.getImageData(0, 0, layerCanvasRef.current.width, layerCanvasRef.current.height)
+      const original = context.getImageData(0, 0, layerCanvasRef.current.width, layerCanvasRef.current.height)
+      const imageData = new ImageData(new Uint8ClampedArray(original.data), original.width, original.height)
       if (floodFillPixels(imageData, point, hexToRgba(primaryColor))) {
+        if (selection) constrainImageDataToRect(original, imageData, selection)
         context.putImageData(imageData, 0, 0)
         setDrawVersion((value) => value + 1)
         void commitLayer(prepared.layerId, prepared.width, prepared.height)
@@ -364,15 +379,25 @@ export function DrawingCanvas() {
     const context = layerCanvas?.getContext('2d', { willReadFrequently: true })
     if (!prepared || !layerCanvas || !context) return
     if (pointer.tool === 'pencil' || pointer.tool === 'eraser') {
-      if (!pointer.imageData) return
-      drawLinePixels(
-        pointer.imageData,
-        pointer.last,
-        point,
-        brushSize,
-        pointer.tool === 'eraser' ? { r: 0, g: 0, b: 0, a: 0 } : hexToRgba(primaryColor),
+      if (!pointer.imageData || !pointer.snapshot) return
+      pointer.strokePoints = [...(pointer.strokePoints ?? [pointer.start]), point]
+      const imageData = new ImageData(
+        new Uint8ClampedArray(pointer.snapshot.data),
+        pointer.snapshot.width,
+        pointer.snapshot.height,
       )
-      context.putImageData(pointer.imageData, 0, 0)
+      for (let index = 1; index < pointer.strokePoints.length; index += 1) {
+        drawLinePixels(
+          imageData,
+          pointer.strokePoints[index - 1],
+          pointer.strokePoints[index],
+          brushSize,
+          pointer.tool === 'eraser' ? { r: 0, g: 0, b: 0, a: 0 } : hexToRgba(primaryColor),
+        )
+      }
+      if (selection) constrainImageDataToRect(pointer.snapshot, imageData, selection)
+      pointer.imageData = imageData
+      context.putImageData(imageData, 0, 0)
       setDrawVersion((value) => value + 1)
     } else if (pointer.tool === 'line' || pointer.tool === 'rectangle' || pointer.tool === 'ellipse') {
       if (!pointer.snapshot) return
@@ -389,6 +414,7 @@ export function DrawingCanvas() {
       } else {
         drawEllipsePixels(imageData, pointer.start, point, brushSize, color)
       }
+      if (selection) constrainImageDataToRect(pointer.snapshot, imageData, selection)
       context.putImageData(imageData, 0, 0)
       setDrawVersion((value) => value + 1)
     } else if (pointer.tool === 'select') {
@@ -414,10 +440,35 @@ export function DrawingCanvas() {
     if (prepared) void commitLayer(prepared.layerId, prepared.width, prepared.height)
   }
 
+  const deleteSelection = useCallback(async () => {
+    if (!selection) return
+    const prepared = prepareLayer()
+    const layerCanvas = layerCanvasRef.current
+    if (!prepared || !layerCanvas) return
+    const context = layerCanvas.getContext('2d', { willReadFrequently: true })
+    if (!context) return
+    context.clearRect(selection.x, selection.y, selection.width, selection.height)
+    setDrawVersion((value) => value + 1)
+    setSelection(undefined)
+    setMessage('???????')
+    await commitLayer(prepared.layerId, prepared.width, prepared.height)
+  }, [commitLayer, prepareLayer, selection])
+
   useEffect(() => {
     const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
     const down = (event: KeyboardEvent) => {
       if (isTyping(event.target)) return
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (selection) {
+          event.preventDefault()
+          void deleteSelection()
+        }
+        return
+      }
+      if (event.key === 'Escape') {
+        setSelection(undefined)
+        return
+      }
       if (event.code === 'Space') { spacePressedRef.current = true; event.preventDefault(); return }
       const key = event.key.toLowerCase()
       if ((event.ctrlKey || event.metaKey) && (key === '=' || key === '+')) {
@@ -444,7 +495,7 @@ export function DrawingCanvas() {
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
-  }, [setTool])
+  }, [deleteSelection, selection, setTool])
 
   if (!bundle || !frame) return <div className="drawing-empty">{t('请先打开一个精灵项目。')}</div>
 
@@ -506,6 +557,13 @@ export function DrawingCanvas() {
           />
         </div>
       </div>
+      {selection && (
+        <div className="selection-actions" data-testid="selection-actions">
+          <span>{selection.x},{selection.y} · {selection.width}×{selection.height}</span>
+          <button type="button" onClick={() => setSelection(undefined)}>取消选区</button>
+          <button type="button" onClick={() => void deleteSelection()}>删除选区</button>
+        </div>
+      )}
       <div className="drawing-statusbar">
         <span>{cursor ? `${cursor.x}, ${cursor.y}` : '\u2014'}</span>
         <span>{frameWidth} {'\u00d7'} {frameHeight}</span>

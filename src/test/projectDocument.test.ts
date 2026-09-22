@@ -3,9 +3,11 @@ import { createDefaultSpeedCurve } from '../domain/animationTiming'
 import { createDefaultLighting, createDefaultPreferences } from '../domain/defaults'
 import { createPalettePreset } from '../domain/palette'
 import { createFrameRefinement } from '../domain/refinement'
+import { createCameraShakeEvent } from '../domain/frameEvents'
 import {
   createProjectDocument,
   parseProjectDocument,
+  remapProjectEditingState,
   serializeProjectDocument,
 } from '../domain/projectDocument'
 import type { AssetBundle, ProjectDocumentV1 } from '../domain/types'
@@ -83,6 +85,55 @@ describe('project document', () => {
     expect(restored.animations[0].alignment?.canvasHeight).toBe(128)
     expect(restored.animations[0].timing?.speedCurve.keyframes[0].value).toBe(0.5)
     expect(restored.refinements[0].sourceHash).toBe('source-hash')
+  })
+
+  it('remaps refinement and frame event ids when source files are imported again', () => {
+    const originalBundle = bundle()
+    const document = createProjectDocument(
+      originalBundle,
+      {
+        projectName: '????',
+        palettePresets: [createPalettePreset('p:1', '??', ['#ff0000'])],
+        activePaletteId: 'p:1',
+        lighting: createDefaultLighting(),
+        renderPreferences: createDefaultPreferences(),
+      },
+      {
+        backend: 'webgl',
+        textureMode: 'color',
+        background: 'checker',
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+      },
+    )
+    const reimportedBundle = {
+      ...originalBundle,
+      frames: originalBundle.frames.map((frame) => ({ ...frame, id: 'frame:new' })),
+      animations: originalBundle.animations.map((animation) => ({ ...animation, id: 'clip:new', frameIds: ['frame:new'] })),
+    }
+    const refinement = createFrameRefinement('frame:1', 32, 32)
+    refinement.cels[0].bitmapAssetId = 'asset:1'
+    const remapped = remapProjectEditingState(document, reimportedBundle, {
+      refinements: [refinement],
+      refinementAssets: [{
+        id: 'asset:1',
+        projectId: 'project:1',
+        frameId: 'frame:1',
+        layerId: refinement.layers[0].id,
+        blob: new Blob(['pixel']),
+        width: 32,
+        height: 32,
+        updatedAt: new Date(0).toISOString(),
+      }],
+      frameEvents: [createCameraShakeEvent('clip:1', 'frame:1')],
+    })
+
+    expect(remapped.refinements[0].sourceFrameId).toBe('frame:new')
+    expect(remapped.refinements[0].cels[0].frameId).toBe('frame:new')
+    expect(remapped.refinementAssets[0].frameId).toBe('frame:new')
+    expect(remapped.frameEvents[0].actionId).toBe('clip:new')
+    expect(remapped.frameEvents[0].frameId).toBe('frame:new')
   })
 
   it('upgrades version 1 documents without losing settings', () => {

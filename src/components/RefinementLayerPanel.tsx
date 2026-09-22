@@ -105,7 +105,7 @@ export function RefinementLayerPanel() {
             </div>
           </div>
         <div className="refinement-action-row">
-          <button type="button" disabled={!refinement || refinement.layers.length <= 1} onClick={() => selectedLayer && removeLayer(frame.id, selectedLayer.id)}>{t('删除图层')}</button>
+          <button type="button" disabled={!refinement} onClick={() => selectedLayer && removeLayer(frame.id, selectedLayer.id)}>{t('删除图层')}</button>
           <button type="button" onClick={() => resetFrame(frame.id)}>{t('恢复原图')}</button>
         </div>
         </div>

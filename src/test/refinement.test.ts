@@ -78,6 +78,16 @@ describe('refinement store', () => {
     })
   })
 
+  it('removes the whole refinement when the last editable layer is deleted', () => {
+    const refinement = useRefinementStore.getState().ensureFrame('frame:3', 8, 8)
+    const layerId = refinement.layers[0].id
+    useRefinementStore.getState().saveCelBlob('frame:3', layerId, new Blob(['pixel']), 8, 8)
+
+    useRefinementStore.getState().removeLayer('frame:3', layerId)
+    expect(useRefinementStore.getState().refinements['frame:3']).toBeUndefined()
+    expect(Object.values(useRefinementStore.getState().assets).filter((asset) => asset.frameId === 'frame:3')).toHaveLength(0)
+  })
+
   it('supports layers, cel clearing and frame reset', () => {
     const first = useRefinementStore.getState().ensureFrame('frame:1', 8, 8)
     const firstLayer = first.layers[0].id
