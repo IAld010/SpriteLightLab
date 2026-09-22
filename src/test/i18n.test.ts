@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { translate, useLanguageStore } from '../i18n'
+import { translate, translateLightName, useLanguageStore } from '../i18n'
 
 describe('i18n', () => {
   it('returns the source Chinese text by default', () => {
@@ -20,6 +20,14 @@ describe('i18n', () => {
     expect(translate('已忽略 3 个不支持的文件。', 'en')).toBe('Ignored 3 unsupported files.')
     expect(translate('法线图尺寸必须与精灵图完全一致：精灵图 64×64，法线图 32×32。', 'en'))
       .toBe('Color and normal dimensions must match exactly: sprite 64×64, normal 32×32.')
+  })
+
+  it('translates default light names without changing custom names', () => {
+    expect(translateLightName('主方向光', 'en')).toBe('Main directional light')
+    expect(translateLightName('暖色点光', 'en')).toBe('Warm point light')
+    expect(translateLightName('点光 3', 'en')).toBe('Point 3')
+    expect(translateLightName('My custom light', 'en')).toBe('My custom light')
+    expect(translateLightName('暖色点光', 'zh-CN')).toBe('暖色点光')
   })
 
   it('persists the selected language', () => {

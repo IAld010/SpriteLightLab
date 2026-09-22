@@ -2,7 +2,6 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
-
 async function chooseDemo(page: Page, index: 0 | 1 | 2) {
   await page.getByTestId('demo-picker-trigger').click()
   const menu = page.getByTestId('demo-menu')
@@ -101,6 +100,14 @@ test('English localization covers workspace pages without horizontal overflow', 
   await expect(tabs.nth(2)).toHaveText('Frames')
   await expect(tabs.nth(3)).toHaveText('Project')
   await expect(tabs.nth(4)).toHaveText('Anchor')
+  await tabs.nth(1).click()
+  const lightingPanel = page.locator('.lighting-panel')
+  await expect(lightingPanel).toContainText('Main directional light')
+  const addLightButtons = page.locator('.add-light-row .mini-button')
+  await addLightButtons.nth(1).click()
+  await addLightButtons.nth(2).click()
+  await expect(page.locator('.light-list')).toContainText('Point 3')
+  await expect(page.locator('.light-list')).toContainText('Spot 4')
 
   for (const viewport of [{ width: 1280, height: 720 }, { width: 1440, height: 900 }]) {
     await page.setViewportSize(viewport)
@@ -409,8 +416,6 @@ test('palette name input can be cleared before committing a new name', async ({ 
   await chooseDemo(page, 0)
   await page.locator('.inspector-tabs-five button').nth(0).click()
   const input = page.locator('.palette-name-input')
-  const original = await input.inputValue()
-
   await input.fill('')
   await expect(input).toHaveValue('')
   await input.fill('Custom Palette')
@@ -419,7 +424,7 @@ test('palette name input can be cleared before committing a new name', async ({ 
 
   await input.fill('')
   await input.press('Enter')
-  await expect(input).toHaveValue(original)
+  await expect(input).toHaveValue('Custom Palette')
 })
 
 test('palette picker uses the in-app menu for mouse and keyboard selection', async ({ page }) => {
@@ -1250,6 +1255,50 @@ test('non-grid region import auto-detects and supports manual rectangle editing'
   await page.reload()
   await expect(page.locator('.timeline-frame-cell')).toHaveCount(2)
   await expect(page.locator('.action-item')).toHaveCount(1)
+})
+
+test('grid import uses the shared vibrancy surface system in both modes', async ({ page }) => {
+  await page.goto('/')
+  await page.getByTestId('open-grid-import').click()
+  const dialog = page.getByTestId('grid-import-dialog')
+
+  const gridStyles = await dialog.evaluate(() => {
+    const style = (selector: string) => getComputedStyle(document.querySelector(selector)!)
+    return {
+      dialogRadius: style('.grid-import-dialog').borderRadius,
+      headerBackground: style('.grid-import-header').backgroundColor,
+      settingsBackground: style('.grid-import-settings').backgroundColor,
+      previewBackground: style('.grid-import-preview').backgroundColor,
+      cardBackground: style('.grid-preview-card').backgroundColor,
+      canvasBackgroundImage: style('.grid-preview-canvas').backgroundImage,
+      canvasBackgroundSize: style('.grid-preview-canvas').backgroundSize,
+    }
+  })
+  expect(gridStyles.dialogRadius).toBe('16px')
+  expect(gridStyles.headerBackground).toBe('rgba(28, 28, 30, 0.92)')
+  expect(gridStyles.settingsBackground).toBe('rgba(28, 28, 30, 0.88)')
+  expect(gridStyles.previewBackground).toBe('rgb(28, 28, 30)')
+  expect(gridStyles.cardBackground).toBe('rgba(44, 44, 46, 0.94)')
+  expect(gridStyles.canvasBackgroundImage).toContain('url(')
+  expect(gridStyles.canvasBackgroundSize).toBe('16px 16px')
+
+  await dialog.locator('input[type="file"]').nth(0).setInputFiles(
+    path.join(process.cwd(), 'e2e', 'fixtures', 'alignment', 'horizontal.png'),
+  )
+  await dialog.locator('.grid-import-mode-switch button').nth(1).click()
+  const region = dialog.locator('.region-import-workspace')
+  await expect(region).toBeVisible()
+  await expect(region.locator('.region-editor-canvas')).toBeVisible()
+  const regionStyles = await region.evaluate((root) => ({
+    workspace: getComputedStyle(root).backgroundColor,
+    editor: getComputedStyle(root.querySelector('.region-import-editor')!).backgroundColor,
+    canvasImage: getComputedStyle(root.querySelector('.region-editor-canvas')!).backgroundImage,
+    canvasSize: getComputedStyle(root.querySelector('.region-editor-canvas')!).backgroundSize,
+  }))
+  expect(regionStyles.workspace).toBe('rgb(44, 44, 46)')
+  expect(regionStyles.editor).toBe('rgb(28, 28, 30)')
+  expect(regionStyles.canvasImage).toContain('url(')
+  expect(regionStyles.canvasSize).toBe('16px 16px')
 })
 
 test('grid import slices aligned sheets and explains naming and size rules', async ({ page }) => {

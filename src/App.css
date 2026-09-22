@@ -1186,6 +1186,7 @@ img {
     display: none;
   }
 }
+
 @media (prefers-reduced-motion: reduce) {
   .timeline-frame-cell {
     transition: none;
@@ -4402,6 +4403,367 @@ img {
   background: rgba(28, 28, 30, 0.92);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(20px);
+}
+
+/* Grid import visual alignment: keeps the existing workflow and content hierarchy. */
+.grid-import-backdrop {
+  padding: 16px;
+}
+
+.grid-import-dialog {
+  width: min(1320px, calc(100vw - 32px));
+  height: min(840px, calc(100vh - 32px));
+  border-color: var(--vibrancy-border);
+  border-radius: 16px;
+  background: var(--vibrancy-panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.52);
+}
+
+.grid-import-header,
+.grid-import-footer {
+  gap: 16px;
+  padding: 14px 18px;
+  border-color: var(--vibrancy-border-subtle);
+  background: rgba(28, 28, 30, 0.92);
+  backdrop-filter: blur(24px);
+}
+
+.grid-import-header {
+  min-height: 84px;
+}
+
+.grid-import-footer {
+  min-height: 64px;
+}
+
+.grid-import-header > div:first-child {
+  min-width: 0;
+}
+
+.grid-import-header h1 {
+  margin: 3px 0 5px;
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.grid-import-header p,
+.grid-import-footer span {
+  color: var(--vibrancy-text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.grid-import-header p {
+  max-width: 760px;
+}
+
+.grid-import-mode-switch {
+  display: inline-flex;
+  gap: 3px;
+  margin-top: 10px;
+  padding: 3px;
+  border: 1px solid var(--vibrancy-border-subtle);
+  border-radius: 9px;
+  background: var(--vibrancy-deep);
+}
+
+.grid-import-mode-switch button {
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  color: var(--vibrancy-text-secondary);
+  font-size: 11px;
+}
+
+.grid-import-mode-switch button:hover {
+  color: var(--vibrancy-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.grid-import-mode-switch button.is-active {
+  color: var(--vibrancy-text);
+  background: rgba(10, 132, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.45);
+}
+
+.grid-import-content {
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  background: var(--vibrancy-panel);
+}
+
+.grid-import-settings,
+.grid-import-dialog .import-rules-panel {
+  padding: 16px;
+  border-color: var(--vibrancy-border-subtle);
+  background: rgba(28, 28, 30, 0.88);
+}
+
+.grid-import-preview {
+  padding: 18px;
+  background: var(--vibrancy-deep);
+}
+
+.grid-preview-pair {
+  gap: 14px;
+}
+
+.grid-import-dialog .grid-preview-card {
+  padding: 14px;
+  border-color: var(--vibrancy-border-subtle);
+  border-radius: 10px;
+  background: rgba(44, 44, 46, 0.94);
+}
+
+.grid-preview-heading {
+  margin-bottom: 12px;
+  color: var(--vibrancy-text-secondary);
+  font-size: 11px;
+}
+
+.grid-preview-heading span {
+  color: var(--vibrancy-text-muted);
+  font-size: 10px;
+}
+
+.grid-preview-canvas {
+  border-color: var(--vibrancy-border-subtle);
+  border-radius: 8px;
+  background: var(--vibrancy-checker);
+  background-size: 16px 16px;
+}
+
+.grid-preview-empty {
+  min-height: 220px;
+  color: var(--vibrancy-text-muted);
+  font-size: 11px;
+}
+
+.grid-summary-card {
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.grid-import-dialog .grid-summary-card div {
+  padding: 11px 12px;
+  border-color: var(--vibrancy-border-subtle);
+  border-radius: 9px;
+  background: rgba(58, 58, 60, 0.72);
+}
+
+.grid-summary-card span {
+  color: var(--vibrancy-text-muted);
+  font-size: 10px;
+}
+
+.grid-summary-card strong {
+  color: var(--vibrancy-text);
+  font-size: 16px;
+}
+
+.grid-import-dialog .grid-file-row {
+  gap: 9px;
+  margin-top: 10px;
+  padding: 10px;
+  border-color: var(--vibrancy-border-subtle);
+  border-radius: 9px;
+  background: var(--vibrancy-deep);
+}
+
+.grid-file-row span {
+  color: var(--vibrancy-text-secondary);
+  font-size: 11px;
+}
+
+.grid-file-row small {
+  color: var(--vibrancy-text-muted);
+  font-size: 9px;
+}
+
+.grid-number-grid {
+  gap: 10px;
+}
+
+.grid-number-field span {
+  margin-bottom: 5px;
+  color: var(--vibrancy-text-muted);
+  font-size: 10px;
+}
+
+.grid-number-field input {
+  min-height: 34px;
+  padding: 0 10px;
+  border-color: var(--vibrancy-border);
+  border-radius: 8px;
+  color: var(--vibrancy-text);
+  background: var(--vibrancy-surface);
+  font-size: 11px;
+}
+
+.grid-import-dialog .import-rules-panel h3 {
+  margin: 5px 0 14px;
+  color: var(--vibrancy-text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+}
+
+.grid-import-dialog .import-rules-panel p {
+  color: var(--vibrancy-text-secondary);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.grid-import-dialog .import-rules-panel code {
+  color: var(--vibrancy-text-secondary);
+  font-size: 9px;
+}
+
+.grid-import-dialog .rule-example {
+  margin-top: 8px;
+  padding: 9px;
+  border-color: var(--vibrancy-border-subtle);
+  border-radius: 8px;
+  background: var(--vibrancy-deep);
+}
+
+.rule-example span {
+  color: var(--vibrancy-text-muted);
+  font-size: 10px;
+}
+
+.grid-import-dialog .size-rule,
+.grid-import-dialog .grid-rule {
+  margin-top: 14px;
+  padding: 12px;
+  border-color: var(--vibrancy-border-subtle);
+  border-radius: 10px;
+  background: var(--vibrancy-surface);
+}
+
+.size-rule strong,
+.grid-rule strong {
+  color: var(--vibrancy-text-secondary);
+  font-size: 11px;
+}
+
+.size-comparison {
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.size-comparison span {
+  padding: 7px;
+  color: var(--vibrancy-text-muted);
+  background: var(--vibrancy-deep);
+  font-size: 9px;
+}
+
+.region-import-workspace {
+  grid-template-columns: 300px minmax(0, 1fr) 300px;
+  border-color: var(--vibrancy-border-subtle);
+  background: var(--vibrancy-panel);
+}
+
+.region-import-settings,
+.region-import-list {
+  padding: 16px;
+  border-color: var(--vibrancy-border-subtle);
+  background: rgba(28, 28, 30, 0.88);
+}
+
+.region-import-editor {
+  padding: 18px;
+  background: var(--vibrancy-deep);
+}
+
+.region-editor-canvas {
+  border-color: var(--vibrancy-border-subtle);
+  border-radius: 10px;
+  background: var(--vibrancy-checker);
+  background-size: 16px 16px;
+}
+
+.region-list-scroll {
+  gap: 8px;
+}
+
+.region-list-item {
+  gap: 8px;
+  padding: 8px 9px;
+  border-color: var(--vibrancy-border-subtle);
+  border-radius: 8px;
+  color: var(--vibrancy-text-secondary);
+  background: var(--vibrancy-deep);
+  font-size: 9px;
+}
+
+.region-list-item.is-active {
+  border-color: rgba(10, 132, 255, 0.65);
+  color: var(--vibrancy-text);
+  background: rgba(10, 132, 255, 0.16);
+}
+
+.region-list-item strong {
+  color: var(--vibrancy-text);
+  font-size: 10px;
+}
+
+.region-rule-note {
+  border-color: var(--vibrancy-border-subtle);
+  border-radius: 9px;
+  color: var(--vibrancy-text-secondary);
+  background: var(--vibrancy-surface);
+}
+
+.region-rule-note strong {
+  color: var(--vibrancy-text);
+  font-size: 11px;
+}
+
+.region-rule-note p {
+  font-size: 10px;
+}
+
+.region-editor-box,
+.region-editor-box.is-selected,
+.grid-cell-overlay {
+  border-color: var(--vibrancy-accent);
+  background: rgba(10, 132, 255, 0.12);
+}
+
+.region-editor-box.is-selected {
+  background: rgba(10, 132, 255, 0.18);
+}
+
+.region-resize-handle {
+  border-color: rgba(28, 28, 30, 0.9);
+  background: var(--vibrancy-accent);
+}
+
+@media (max-width: 1180px) {
+  .grid-import-dialog {
+    width: calc(100vw - 24px);
+    height: calc(100vh - 24px);
+  }
+
+  .grid-import-content {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
+  .grid-import-dialog .import-rules-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 1120px) {
+  .region-import-workspace {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .region-import-list {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--vibrancy-border-subtle);
+    border-left: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,7 +1,7 @@
 import { useEditorStore } from '../store/editorStore'
 import { useProjectStore } from '../store/projectStore'
 import type { LightType } from '../domain/types'
-import { t } from '../i18n'
+import { t, tLightName } from '../i18n'
 
 export function LightingPanel() {
   const bundle = useEditorStore((state) => state.bundle)
@@ -125,14 +125,14 @@ export function LightingPanel() {
             >
               <button type="button" className="light-main" onClick={() => selectLight(light.id)}>
                 <span className="color-chip" style={{ background: light.color }} />
-                <span>{light.name}</span>
+                <span>{tLightName(light.name)}</span>
                 <small>{light.type === 'directional' ? t('方向光') : light.type === 'point' ? t('点光') : t('聚光')}</small>
               </button>
               <div className="light-row-actions">
                 <input
                   type="checkbox"
                   checked={light.enabled}
-                  aria-label={t('启用 {name}', { name: light.name })}
+                  aria-label={t('启用 {name}', { name: tLightName(light.name) })}
                   onChange={(event) => updateLight(light.id, { enabled: event.target.checked })}
                 />
 
@@ -145,7 +145,7 @@ export function LightingPanel() {
       {selectedLight && (
         <section className="inspector-section light-editor">
           <div className="section-title-row">
-            <strong>{t('编辑 {name}', { name: selectedLight.name })}</strong>
+            <strong>{t('编辑 {name}', { name: tLightName(selectedLight.name) })}</strong>
             <button
               type="button"
               className="mini-button danger"
@@ -193,7 +193,7 @@ export function LightingPanel() {
                 <input
                   type="checkbox"
                   checked={selectedLight.handleVisible}
-                  aria-label={t('显示 {name} 画布手柄', { name: selectedLight.name })}
+                  aria-label={t('显示 {name} 画布手柄', { name: tLightName(selectedLight.name) })}
                   onChange={(event) =>
                     updateLight(selectedLight.id, { handleVisible: event.target.checked })
                   }

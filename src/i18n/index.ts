@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand'
+import { create } from 'zustand'
 
 export type Language = 'zh-CN' | 'en'
 
@@ -492,6 +492,27 @@ export function translate(
   )
 }
 
+export function translateLightName(name: string, language: Language): string {
+  if (language !== 'en') return name
+  if (name === '主方向光') return 'Main directional light'
+  if (name === '暖色点光') return 'Warm point light'
+  const match = name.match(/^(光源|方向光|点光|聚光) (\d+)$/)
+  if (!match) return name
+  const label =
+    match[1] === '光源'
+      ? 'Light'
+      : match[1] === '方向光'
+        ? 'Directional'
+        : match[1] === '点光'
+          ? 'Point'
+          : 'Spot'
+  return `${label} ${match[2]}`
+}
+
+export function tLightName(name: string): string {
+  return translateLightName(name, useLanguageStore.getState().language)
+}
+
 export function t(text: string, params?: Record<string, string | number>): string {
   return translate(text, useLanguageStore.getState().language, params)
 }
@@ -505,6 +526,3 @@ export function useI18n() {
     t: (text: string, params?: Record<string, string | number>) => translate(text, language, params),
   }
 }
-
-
-

@@ -190,9 +190,22 @@ export function PalettePanel() {
           </button>
         </div>
         <input
+          key={`${palette.id}:${palette.name}`}
           className="palette-name-input"
-          value={palette.name}
-          onChange={(event) => renamePalette(palette.id, event.target.value)}
+          defaultValue={palette.name}
+          onBlur={(event) => {
+            const nextName = event.currentTarget.value.trim()
+            if (nextName && nextName !== palette.name) {
+              renamePalette(palette.id, nextName)
+            } else if (!nextName) {
+              event.currentTarget.value = palette.name
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.currentTarget.blur()
+            }
+          }}
           aria-label={t('色板名称')}
         />
         <div className="history-row">

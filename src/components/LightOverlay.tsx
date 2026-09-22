@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import type { LightSource } from '../domain/types'
 import { useProjectStore } from '../store/projectStore'
-import { t } from '../i18n'
+import { t, tLightName } from '../i18n'
 
 function SpotCone({ light }: { light: LightSource }) {
   const halfAngle = (light.coneAngle * Math.PI) / 360
@@ -72,7 +72,7 @@ export function LightOverlay() {
             <button
               type="button"
               className="light-handle"
-              title={t('{name}：拖拽移动发光原点', { name: light.name })}
+              title={t('{name}：拖拽移动发光原点', { name: tLightName(light.name) })}
               onPointerDown={(event) => {
                 event.stopPropagation()
                 event.currentTarget.setPointerCapture(event.pointerId)
