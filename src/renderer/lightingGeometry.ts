@@ -1,18 +1,20 @@
 export type ObjectRect = [x: number, y: number, width: number, height: number]
 
 export function objectRectFromSpriteAnchor(
-  anchorX: number,
-  anchorY: number,
+  positionX: number,
+  positionY: number,
   spriteWidth: number,
   spriteHeight: number,
   viewportWidth: number,
   viewportHeight: number,
+  anchorX = 0.5,
+  anchorY = 0.5,
 ): ObjectRect {
   const safeViewportWidth = Math.max(viewportWidth, 1)
   const safeViewportHeight = Math.max(viewportHeight, 1)
   return [
-    (anchorX - spriteWidth / 2) / safeViewportWidth,
-    (anchorY - spriteHeight / 2) / safeViewportHeight,
+    (positionX - spriteWidth * anchorX) / safeViewportWidth,
+    (positionY - spriteHeight * anchorY) / safeViewportHeight,
     spriteWidth / safeViewportWidth,
     spriteHeight / safeViewportHeight,
   ]

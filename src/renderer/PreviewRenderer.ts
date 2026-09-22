@@ -14,8 +14,7 @@ import type {
   RuntimeImage,
 } from '../domain/types'
 import { renderCpuSprite } from './CpuSpriteRenderer'
-import { objectRectFromSpriteAnchor } from './lightingGeometry'
-import { computeAlignedSpriteScale } from './previewScale'
+import { computePreviewLayout, type PreviewLayout } from './previewLayout'
 import { registerPreviewExporter, unregisterPreviewExporter, type PreviewExporter } from './previewExportRegistry'
 
 export interface PreviewAppearance {
@@ -52,14 +51,9 @@ export class PreviewRenderer implements PreviewExporter {
   private zoom = 1
   private panX = 0
   private panY = 0
-  private displayScale = 1
-  private displayX = 0
-  private displayY = 0
-  private viewportWidth = 1
-  private viewportHeight = 1
+  private previewLayout?: PreviewLayout
   private currentToken = 0
   private resizeHandler = () => {
-    this.layout()
     void this.renderFrame()
   }
 
@@ -153,6 +147,7 @@ export class PreviewRenderer implements PreviewExporter {
       height: frame.source.rect?.height ?? sourceImage.height,
     }
 
+    this.layout()
     const canvas = this.renderFrameCanvas()
     const texture = this.updateOutputTexture(canvas)
     if (!this.sprite) {
@@ -174,13 +169,13 @@ export class PreviewRenderer implements PreviewExporter {
 
   setZoom(zoom: number): void {
     this.zoom = zoom
-    this.layout()
+    this.updateView()
   }
 
   setPan(x: number, y: number): void {
     this.panX = x
     this.panY = y
-    this.layout()
+    this.updateView()
   }
 
   setTextureMode(mode: PreviewTextureMode): void {
@@ -199,8 +194,13 @@ export class PreviewRenderer implements PreviewExporter {
 
   private async renderFrame(): Promise<void> {
     if (!this.app || !this.sprite || !this.currentColor) return
+    this.layout()
     this.sprite.texture = this.updateOutputTexture(this.renderFrameCanvas())
     this.layout()
+  }
+
+  private updateView(): void {
+    void this.renderFrame()
   }
 
   private updateOutputTexture(source: HTMLCanvasElement): Texture {
@@ -273,61 +273,46 @@ export class PreviewRenderer implements PreviewExporter {
   }
 
   private objectRect(): [number, number, number, number] {
-    const spriteWidth = Math.max(1, this.sprite?.texture.width ?? 1) * Math.max(this.displayScale, 0.0001)
-    const spriteHeight = Math.max(1, this.sprite?.texture.height ?? 1) * Math.max(this.displayScale, 0.0001)
-    return objectRectFromSpriteAnchor(
-      this.displayX,
-      this.displayY,
-      spriteWidth,
-      spriteHeight,
-      this.viewportWidth,
-      this.viewportHeight,
-    )
+    return this.previewLayout?.objectRect ?? [0, 0, 1, 1]
   }
 
   private layout(): void {
-    if (!this.app || !this.sprite) return
-    const width = this.app.renderer.width / this.app.renderer.resolution
-    const height = this.app.renderer.height / this.app.renderer.resolution
-    this.viewportWidth = width
-    this.viewportHeight = height
-    const textureWidth = Math.max(1, this.sprite.texture.width)
-    const textureHeight = Math.max(1, this.sprite.texture.height)
+    if (!this.app) return
+    const width = this.app.renderer.width
+    const height = this.app.renderer.height
+    const { width: outputWidth, height: outputHeight } = this.outputDimensions()
+    const textureWidth = Math.max(1, this.sprite?.texture.width ?? outputWidth)
+    const textureHeight = Math.max(1, this.sprite?.texture.height ?? outputHeight)
+    const layout = computePreviewLayout({
+      viewportWidth: width,
+      viewportHeight: height,
+      textureWidth,
+      textureHeight,
+      frameWidth: this.currentFrameRect.width,
+      frameHeight: this.currentFrameRect.height,
+      frameAlignment: this.frameAlignment,
+      actionAlignment: this.actionAlignment,
+      zoom: this.zoom,
+      panX: this.panX,
+      panY: this.panY,
+    })
+    this.previewLayout = layout
+    if (!this.sprite) return
+    this.sprite.anchor.set(layout.anchorX, layout.anchorY)
+    this.sprite.scale.set(layout.displayScale)
+    this.sprite.position.set(layout.displayX, layout.displayY)
+  }
 
-    if (this.actionAlignment && this.frameAlignment) {
-      const frameWidth = Math.max(1, this.currentFrameRect.width)
-      const frameHeight = Math.max(1, this.currentFrameRect.height)
-      const outputScale = textureWidth / frameWidth
-      const canvasWidth = Math.max(1, this.actionAlignment.canvasWidth)
-      const canvasHeight = Math.max(1, this.actionAlignment.canvasHeight)
-      const fit = Math.min(
-        (width * 0.68) / canvasWidth,
-        (height * 0.68) / canvasHeight,
-      )
-      const scale = Math.max(0.05, fit * this.actionAlignment.scale * this.zoom)
-      const canvasLeft = width / 2 - (canvasWidth * scale) / 2 + (this.panX * width) / 2
-      const canvasTop = height / 2 - (canvasHeight * scale) / 2 + (this.panY * height) / 2
-      this.displayScale = computeAlignedSpriteScale(scale, outputScale)
-      this.displayX =
-        canvasLeft + (this.actionAlignment.anchorX + this.frameAlignment.offsetX) * scale
-      this.displayY =
-        canvasTop + (this.actionAlignment.anchorY + this.frameAlignment.offsetY) * scale
-      this.sprite.anchor.set(
-        this.frameAlignment.pivotX / frameWidth,
-        this.frameAlignment.pivotY / frameHeight,
-      )
-      this.sprite.scale.set(this.displayScale)
-      this.sprite.position.set(this.displayX, this.displayY)
-      return
+  private outputDimensions(): { width: number; height: number } {
+    const maxPreviewDimension = 1024
+    const scale = Math.min(
+      1,
+      maxPreviewDimension / Math.max(this.currentFrameRect.width, this.currentFrameRect.height),
+    )
+    return {
+      width: Math.max(1, Math.round(this.currentFrameRect.width * scale)),
+      height: Math.max(1, Math.round(this.currentFrameRect.height * scale)),
     }
-
-    const fit = Math.min((width * 0.68) / textureWidth, (height * 0.68) / textureHeight)
-    this.displayScale = Math.max(0.05, fit * this.zoom)
-    this.displayX = width / 2 + (this.panX * width) / 2
-    this.displayY = height / 2 + (this.panY * height) / 2
-    this.sprite.anchor.set(0.5)
-    this.sprite.scale.set(this.displayScale)
-    this.sprite.position.set(this.displayX, this.displayY)
   }
 
   private async loadImageData(image: RuntimeImage): Promise<ImageData> {
@@ -393,6 +378,7 @@ export class PreviewRenderer implements PreviewExporter {
     this.sprite.parent?.removeChild(this.sprite)
     this.sprite.destroy({ children: true, texture: false, textureSource: false })
     this.sprite = undefined
+    this.previewLayout = undefined
   }
 
   async exportViewportPng(): Promise<Blob> {

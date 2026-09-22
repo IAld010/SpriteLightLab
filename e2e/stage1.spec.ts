@@ -498,6 +498,54 @@ test('zoomed viewport can pan and return to center', async ({ page }) => {
   expect(Math.abs(centered.centerY - centered.canvasCenterY)).toBeLessThan(5)
 })
 
+async function measurePositionedLightAlignment(page: Page, type: 'point' | 'spot') {
+  const handleSelector = `.light-position-${type} .light-handle`
+  return page.locator('.preview-canvas-host').evaluate(async (host, selector) => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    const canvas = host.querySelector('canvas')!
+    const handle = host.parentElement!.querySelector(selector) as HTMLElement
+    const output = document.createElement('canvas')
+    output.width = canvas.width
+    output.height = canvas.height
+    const context = output.getContext('2d')!
+    context.drawImage(canvas, 0, 0)
+    const pixels = context.getImageData(0, 0, output.width, output.height).data
+    const luminances = new Float32Array(output.width * output.height)
+    let maximum = -1
+    for (let y = 0; y < output.height; y += 1) {
+      for (let x = 0; x < output.width; x += 1) {
+        const offset = y * output.width + x
+        const index = offset * 4
+        const luminance = pixels[index + 3] < 8 ? -1 : pixels[index] * 0.2126 + pixels[index + 1] * 0.7152 + pixels[index + 2] * 0.0722
+        luminances[offset] = luminance
+        maximum = Math.max(maximum, luminance)
+      }
+    }
+    let sumX = 0
+    let sumY = 0
+    let count = 0
+    for (let y = 0; y < output.height; y += 1) {
+      for (let x = 0; x < output.width; x += 1) {
+        if (luminances[y * output.width + x] >= maximum - 0.05) {
+          sumX += x
+          sumY += y
+          count += 1
+        }
+      }
+    }
+    const hostBounds = host.getBoundingClientRect()
+    const handleBounds = handle.getBoundingClientRect()
+    const scaleX = canvas.width / hostBounds.width
+    const scaleY = canvas.height / hostBounds.height
+    return {
+      centroidX: sumX / count,
+      centroidY: sumY / count,
+      handleX: (handleBounds.left + handleBounds.width / 2 - hostBounds.left) * scaleX,
+      handleY: (handleBounds.top + handleBounds.height / 2 - hostBounds.top) * scaleY,
+    }
+  }, handleSelector)
+}
+
 test('project library saves, switches, renames and removes projects', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByTestId('project-library')).toBeVisible()
@@ -681,7 +729,10 @@ test('specular strength changes the rendered lighting output', async ({ page }) 
   })
 })
 
-test('point and spot lights use the checkerboard handle as their exact emission origin', async ({ page }) => {
+test.describe('high-density light coordinate alignment', () => {
+  test.use({ deviceScaleFactor: 1.5 })
+
+  test('point and spot lights use the checkerboard handle as their exact emission origin', async ({ page }) => {
   await page.goto('/')
   const generated = await page.evaluate(() => {
     const make = (r: number, g: number, b: number) => {
@@ -707,74 +758,49 @@ test('point and spot lights use the checkerboard handle as their exact emission 
   await lightRows.nth(0).locator('input[type="checkbox"]').uncheck()
   await lightRows.nth(1).locator('.light-main').click()
   let ranges = page.locator('.light-editor .range-field input[type="range"]')
-  await ranges.nth(0).fill('0.5')
-  await ranges.nth(1).fill('0.5')
+  await ranges.nth(0).fill('0.62')
+  await ranges.nth(1).fill('0.7')
   await ranges.nth(2).fill('1')
   await ranges.nth(3).fill('20')
   await page.locator('.light-editor .color-setting-row input[type="range"]').first().fill('0.35')
   await page.waitForTimeout(350)
 
-  const pointAlignment = await page.locator('.preview-canvas-host').evaluate(async (host) => {
-    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    const canvas = host.querySelector('canvas')!
-    const handle = host.parentElement!.querySelector('.light-position-point .light-handle') as HTMLElement
-    const output = document.createElement('canvas')
-    output.width = canvas.width
-    output.height = canvas.height
-    const context = output.getContext('2d')!
-    context.drawImage(canvas, 0, 0)
-    const pixels = context.getImageData(0, 0, output.width, output.height).data
-    const luminances = new Float32Array(output.width * output.height)
-    let maximum = -1
-    for (let y = 0; y < output.height; y += 1) {
-      for (let x = 0; x < output.width; x += 1) {
-        const offset = y * output.width + x
-        const index = offset * 4
-        const luminance = pixels[index + 3] < 8 ? -1 : pixels[index] * 0.2126 + pixels[index + 1] * 0.7152 + pixels[index + 2] * 0.0722
-        luminances[offset] = luminance
-        maximum = Math.max(maximum, luminance)
-      }
-    }
-    let sumX = 0
-    let sumY = 0
-    let count = 0
-    for (let y = 0; y < output.height; y += 1) {
-      for (let x = 0; x < output.width; x += 1) {
-        if (luminances[y * output.width + x] >= maximum - 0.05) {
-          sumX += x
-          sumY += y
-          count += 1
-        }
-      }
-    }
-    const hostBounds = host.getBoundingClientRect()
-    const handleBounds = handle.getBoundingClientRect()
-    const scaleX = canvas.width / hostBounds.width
-    const scaleY = canvas.height / hostBounds.height
-    return {
-      centroidX: sumX / count,
-      centroidY: sumY / count,
-      handleX: (handleBounds.left + handleBounds.width / 2 - hostBounds.left) * scaleX,
-      handleY: (handleBounds.top + handleBounds.height / 2 - hostBounds.top) * scaleY,
-    }
-  })
+  const pointAlignment = await measurePositionedLightAlignment(page, 'point')
 
   expect(Math.abs(pointAlignment.centroidX - pointAlignment.handleX)).toBeLessThan(2)
   expect(Math.abs(pointAlignment.centroidY - pointAlignment.handleY)).toBeLessThan(2)
+
+  await page.locator('.zoom-control input[type="range"]').fill('2')
+  const host = page.locator('.preview-canvas-host')
+  const bounds = await host.boundingBox()
+  if (!bounds) throw new Error('Preview host not found')
+  await page.mouse.move(bounds.x + 100, bounds.y + bounds.height - 100)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + 200, bounds.y + bounds.height - 50, { steps: 5 })
+  await page.mouse.up()
+  await page.waitForTimeout(350)
+
+  const cameraAlignedPoint = await measurePositionedLightAlignment(page, 'point')
+  expect(Math.abs(cameraAlignedPoint.centroidX - cameraAlignedPoint.handleX)).toBeLessThan(2)
+  expect(Math.abs(cameraAlignedPoint.centroidY - cameraAlignedPoint.handleY)).toBeLessThan(2)
 
   await page.locator('.add-light-row .mini-button').nth(2).click()
   await lightRows.nth(1).locator('input[type="checkbox"]').uncheck()
   await lightRows.nth(2).locator('.light-main').click()
   ranges = page.locator('.light-editor .range-field input[type="range"]')
   await ranges.nth(0).fill('0')
-  await ranges.nth(1).fill('0.5')
-  await ranges.nth(2).fill('0.5')
+  await ranges.nth(1).fill('0.62')
+  await ranges.nth(2).fill('0.7')
   await ranges.nth(3).fill('1')
   await ranges.nth(4).fill('20')
   await ranges.nth(5).fill('60')
   await ranges.nth(6).fill('0')
   await page.locator('.light-editor .color-setting-row input[type="range"]').first().fill('0.35')
   await page.waitForTimeout(350)
+
+  const spotAlignment = await measurePositionedLightAlignment(page, 'spot')
+  expect(Math.abs(spotAlignment.centroidX - spotAlignment.handleX)).toBeLessThan(2)
+  expect(Math.abs(spotAlignment.centroidY - spotAlignment.handleY)).toBeLessThan(2)
 
   const coneBias = await page.locator('.preview-canvas-host').evaluate(async (host) => {
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
@@ -812,6 +838,7 @@ test('point and spot lights use the checkerboard handle as their exact emission 
   await page.screenshot({
     path: path.join(outputDirectory, 'sprite-light-lab-point-spot.png'),
     fullPage: true,
+  })
   })
 })
 test('anchor calibration aligns 64x64, 64x128 and 128x128 frames at one scale', async ({ page }) => {
