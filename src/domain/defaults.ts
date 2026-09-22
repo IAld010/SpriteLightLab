@@ -16,36 +16,37 @@ export function createDefaultLighting(): LightingState {
     enabled: true,
     color: '#ffd9a6',
     intensity: 0.9,
-    x: 0.5,
-    y: 0.5,
     direction: 225,
-    radius: 0.6,
-    innerAngle: 30,
-    outerAngle: 55,
-    falloff: 2,
-    showUi: true,
-  }
-  const point: LightSource = {
-    id: makeId('light'),
-    name: '暖色点光',
-    type: 'point',
-    enabled: true,
-    color: '#ff8a4c',
-    intensity: 1.1,
-    x: 0.72,
-    y: 0.3,
-    direction: 180,
-    radius: 0.68,
-    innerAngle: 30,
-    outerAngle: 55,
-    falloff: 2,
-    showUi: true,
   }
   return {
     ambientColor: '#ffffff',
     ambientIntensity: 0.34,
-    lights: [directional, point],
-    selectedLightId: point.id,
+    lights: [directional],
+    selectedLightId: directional.id,
+  }
+}
+
+export function normalizeLightingState(lighting?: LightingState): LightingState {
+  if (!lighting) return createDefaultLighting()
+  const lights = (lighting.lights ?? [])
+    .filter((light) => light.type === 'directional')
+    .map((light) => ({
+      id: light.id,
+      name: light.name,
+      type: 'directional' as const,
+      enabled: light.enabled,
+      color: light.color,
+      intensity: light.intensity,
+      direction: light.direction,
+    }))
+  const selectedLightId = lights.some((light) => light.id === lighting.selectedLightId)
+    ? lighting.selectedLightId
+    : lights[0]?.id
+  return {
+    ambientColor: lighting.ambientColor,
+    ambientIntensity: lighting.ambientIntensity,
+    lights,
+    ...(selectedLightId ? { selectedLightId } : {}),
   }
 }
 

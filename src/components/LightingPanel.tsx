@@ -1,6 +1,5 @@
 import { useEditorStore } from '../store/editorStore'
 import { useProjectStore } from '../store/projectStore'
-import type { LightType } from '../domain/types'
 
 export function LightingPanel() {
   const bundle = useEditorStore((state) => state.bundle)
@@ -104,17 +103,14 @@ export function LightingPanel() {
           <span>{lighting.lights.length} / 32</span>
         </div>
         <div className="add-light-row">
-          {(['directional', 'point', 'spot'] as LightType[]).map((type) => (
-            <button
-              type="button"
-              className="mini-button"
-              key={type}
-              disabled={lighting.lights.length >= 32}
-              onClick={() => addLight(type)}
-            >
-              + {type === 'directional' ? '方向光' : type === 'point' ? '点光' : '聚光'}
-            </button>
-          ))}
+          <button
+            type="button"
+            className="mini-button"
+            disabled={lighting.lights.length >= 32}
+            onClick={() => addLight('directional')}
+          >
+            + 方向光
+          </button>
         </div>
         <div className="light-list">
           {lighting.lights.map((light) => (
@@ -125,7 +121,7 @@ export function LightingPanel() {
               <button type="button" className="light-main" onClick={() => selectLight(light.id)}>
                 <span className="color-chip" style={{ background: light.color }} />
                 <span>{light.name}</span>
-                <small>{light.type}</small>
+                <small>方向光</small>
               </button>
               <div className="light-row-actions">
                 <input
@@ -134,19 +130,7 @@ export function LightingPanel() {
                   aria-label={`\u542f\u7528 ${light.name}`}
                   onChange={(event) => updateLight(light.id, { enabled: event.target.checked })}
                 />
-                {light.type !== 'directional' && (
-                  <label className="light-visibility-toggle">
-                    <input
-                      type="checkbox"
-                      checked={light.showUi !== false}
-                      aria-label={`\u663e\u793a ${light.name} \u7684\u753b\u5e03 UI`}
-                      onChange={(event) =>
-                        updateLight(light.id, { showUi: event.target.checked })
-                      }
-                    />
-                    <span>UI</span>
-                  </label>
-                )}
+
               </div>
             </div>
           ))}
@@ -187,73 +171,14 @@ export function LightingPanel() {
             <output>{selectedLight.intensity.toFixed(2)}</output>
           </div>
 
-          {selectedLight.type !== 'directional' && (
-            <>
-              <RangeField
-                label="水平位置"
-                min={0}
-                max={1}
-                step={0.01}
-                value={selectedLight.x}
-                onChange={(x) => updateLight(selectedLight.id, { x })}
-              />
-              <RangeField
-                label="垂直位置"
-                min={0}
-                max={1}
-                step={0.01}
-                value={selectedLight.y}
-                onChange={(y) => updateLight(selectedLight.id, { y })}
-              />
-              <RangeField
-                label="半径（相对精灵）"
-                min={0.05}
-                max={2}
-                step={0.01}
-                value={selectedLight.radius}
-                onChange={(radius) => updateLight(selectedLight.id, { radius })}
-              />
-              <RangeField
-                label="衰减"
-                min={0.2}
-                max={5}
-                step={0.1}
-                value={selectedLight.falloff}
-                onChange={(falloff) => updateLight(selectedLight.id, { falloff })}
-              />
-            </>
-          )}
-
-          {selectedLight.type !== 'point' && (
-            <RangeField
-              label="方向角"
-              min={0}
-              max={360}
-              step={1}
-              value={selectedLight.direction}
-              onChange={(direction) => updateLight(selectedLight.id, { direction })}
-            />
-          )}
-          {selectedLight.type === 'spot' && (
-            <>
-              <RangeField
-                label="内角"
-                min={1}
-                max={selectedLight.outerAngle - 1}
-                step={1}
-                value={selectedLight.innerAngle}
-                onChange={(innerAngle) => updateLight(selectedLight.id, { innerAngle })}
-              />
-              <RangeField
-                label="外角"
-                min={selectedLight.innerAngle + 1}
-                max={89}
-                step={1}
-                value={selectedLight.outerAngle}
-                onChange={(outerAngle) => updateLight(selectedLight.id, { outerAngle })}
-              />
-            </>
-          )}
+          <RangeField
+            label="方向角"
+            min={0}
+            max={360}
+            step={1}
+            value={selectedLight.direction}
+            onChange={(direction) => updateLight(selectedLight.id, { direction })}
+          />
         </section>
       )}
 

@@ -1,4 +1,4 @@
-import { createDefaultLighting } from './defaults'
+import { createDefaultLighting, normalizeLightingState } from './defaults'
 import type {
   AssetBundle,
   EditorSettings,
@@ -78,7 +78,7 @@ export function projectStateFromDocument(document: ProjectDocument): ProjectStat
       ? document.palettePresets
       : [],
     activePaletteId: document.activePaletteId ?? document.palettePresets?.[0]?.id ?? '',
-    lighting: document.lighting ?? createDefaultLighting(),
+    lighting: normalizeLightingState(document.lighting ?? createDefaultLighting()),
     renderPreferences:
       document.renderPreferences ?? {
         lightingEnabled: true,

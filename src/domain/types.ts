@@ -176,7 +176,7 @@ export interface EditorSettings {
   panY: number
 }
 export type PaletteMode = 'indexed' | 'fullcolor'
-export type LightType = 'directional' | 'point' | 'spot'
+export type LightType = 'directional'
 
 export interface PaletteEntry {
   source: string
@@ -215,16 +215,8 @@ export interface LightSource {
   enabled: boolean
   color: string
   intensity: number
-  x: number
-  y: number
   direction: number
-  radius: number
-  innerAngle: number
-  outerAngle: number
-  falloff: number
-  showUi?: boolean
 }
-
 export interface LightingState {
   ambientColor: string
   ambientIntensity: number

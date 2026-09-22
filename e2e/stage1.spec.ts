@@ -672,132 +672,13 @@ test('specular strength changes the rendered lighting output', async ({ page }) 
   const after = await canvas.screenshot()
 
   expect(Buffer.compare(before, after)).not.toBe(0)
-})
 
-test('point light emission centroid aligns with its drag handle', async ({ page }) => {
-  await page.goto('/')
-  const generated = await page.evaluate(() => {
-    const make = (r: number, g: number, b: number) => {
-      const canvas = document.createElement('canvas')
-      canvas.width = 64
-      canvas.height = 64
-      const context = canvas.getContext('2d')!
-      context.fillStyle = `rgb(${r},${g},${b})`
-      context.fillRect(0, 0, 64, 64)
-      return canvas.toDataURL('image/png').split(',')[1]
-    }
-    return { color: make(255, 255, 255), normal: make(128, 128, 255) }
+  const outputDirectory = process.env.STAGE1_OUTPUT_DIR ?? path.join(process.cwd(), 'test-results')
+  await mkdir(outputDirectory, { recursive: true })
+  await page.screenshot({
+    path: path.join(outputDirectory, 'sprite-light-lab-directional-lighting.png'),
+    fullPage: true,
   })
-
-  await page.locator('.toolbar input[type="file"]').nth(1).setInputFiles([
-    { name: 'light-color.png', mimeType: 'image/png', buffer: Buffer.from(generated.color, 'base64') },
-    { name: 'light-color_n.png', mimeType: 'image/png', buffer: Buffer.from(generated.normal, 'base64') },
-  ])
-  await page.getByTestId('confirm-manual-match').click()
-  await page.locator('.inspector-tabs-four button').nth(1).click()
-  await page.locator('.lighting-panel .color-setting-row input[type="range"]').first().fill('0')
-  const toggles = page.locator('.light-list input[type="checkbox"]')
-  if ((await toggles.count()) > 0) {
-    await toggles.nth(0).uncheck()
-  }
-  await page.locator('.light-main').nth(1).click()
-  const ranges = page.locator('.light-editor .range-field input[type="range"]')
-  await ranges.nth(0).fill('0.5')
-  await ranges.nth(1).fill('0.5')
-  await ranges.nth(2).fill('1')
-  await ranges.nth(3).fill('1')
-  await page.locator('.light-editor .color-setting-row input[type="range"]').first().fill('1')
-  await page.waitForTimeout(350)
-
-  const alignment = await page.locator('.preview-canvas-host').evaluate(async (host) => {
-    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    const canvas = host.querySelector('canvas')!
-    const handle = document.querySelector('.light-handle.is-selected') as HTMLElement
-    const output = document.createElement('canvas')
-    output.width = canvas.width
-    output.height = canvas.height
-    const context = output.getContext('2d')!
-    context.drawImage(canvas, 0, 0)
-    const pixels = context.getImageData(0, 0, output.width, output.height).data
-    const luminances = new Float32Array(output.width * output.height)
-    let maximum = -1
-    for (let y = 0; y < output.height; y += 1) {
-      for (let x = 0; x < output.width; x += 1) {
-        const offset = y * output.width + x
-        const index = offset * 4
-        const luminance = pixels[index + 3] < 8 ? -1 : pixels[index] * 0.2126 + pixels[index + 1] * 0.7152 + pixels[index + 2] * 0.0722
-        luminances[offset] = luminance
-        maximum = Math.max(maximum, luminance)
-      }
-    }
-    let sumX = 0
-    let sumY = 0
-    let count = 0
-    for (let y = 0; y < output.height; y += 1) {
-      for (let x = 0; x < output.width; x += 1) {
-        if (luminances[y * output.width + x] >= maximum - 0.05) {
-          sumX += x
-          sumY += y
-          count += 1
-        }
-      }
-    }
-    const hostBounds = host.getBoundingClientRect()
-    const handleBounds = handle.getBoundingClientRect()
-    const scaleX = canvas.width / hostBounds.width
-    const scaleY = canvas.height / hostBounds.height
-    return {
-      centroidX: sumX / count,
-      centroidY: sumY / count,
-      handleX: (handleBounds.left + handleBounds.width / 2 - hostBounds.left) * scaleX,
-      handleY: (handleBounds.top + handleBounds.height / 2 - hostBounds.top) * scaleY,
-    }
-  })
-
-  expect(Math.abs(alignment.centroidX - alignment.handleX)).toBeLessThan(1)
-  expect(Math.abs(alignment.centroidY - alignment.handleY)).toBeLessThan(1)
-})
-
-
-test('point light omits the invalid direction control', async ({ page }) => {
-  await page.goto('/')
-  await chooseDemo(page, 0)
-  await page.locator('.inspector-tabs-four button').nth(1).click()
-
-  await page.locator('.light-main').nth(1).click()
-  await expect(page.locator('.light-editor .range-field')).toHaveCount(4)
-
-  await page.locator('.light-main').nth(0).click()
-  await expect(page.locator('.light-editor .range-field')).toHaveCount(1)
-
-  await page.locator('.add-light-row .mini-button').nth(2).click()
-  await expect(page.locator('.light-editor .range-field')).toHaveCount(7)
-})
-
-test('point and spot canvas UI can be hidden independently', async ({ page }) => {
-  await page.goto('/')
-  await chooseDemo(page, 0)
-  await page.locator('.inspector-tabs-four button').nth(1).click()
-
-  const pointRow = page.locator('.light-row').nth(1)
-  const pointUiToggle = pointRow.locator('.light-visibility-toggle input')
-  await expect(pointUiToggle).toBeVisible()
-  await pointUiToggle.uncheck()
-  await expect(page.locator('.light-handle')).toHaveCount(0)
-
-  await page.locator('.add-light-row .mini-button').nth(2).click()
-  const spotRow = page.locator('.light-row').nth(2)
-  const spotUiToggle = spotRow.locator('.light-visibility-toggle input')
-  await expect(spotUiToggle).toBeVisible()
-  await expect(page.locator('.light-handle')).toHaveCount(1)
-
-  await spotUiToggle.uncheck()
-  await expect(page.locator('.light-handle')).toHaveCount(0)
-
-  await pointUiToggle.check()
-  await expect(page.locator('.light-handle')).toHaveCount(1)
-  await spotUiToggle.check()
-  await expect(page.locator('.light-handle')).toHaveCount(2)
 })
 
 test('anchor calibration aligns 64x64, 64x128 and 128x128 frames at one scale', async ({ page }) => {

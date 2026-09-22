@@ -32,7 +32,7 @@ describe('project store', () => {
   })
 
   it('adds, edits and removes lights', () => {
-    useProjectStore.getState().addLight('spot')
+    useProjectStore.getState().addLight('directional')
     const light = useProjectStore.getState().lighting.lights.at(-1)!
     useProjectStore.getState().updateLight(light.id, { intensity: 2.5, direction: 45 })
     expect(useProjectStore.getState().lighting.lights.at(-1)?.intensity).toBe(2.5)
@@ -43,11 +43,11 @@ describe('project store', () => {
 
   it('resets all project-level state', () => {
     useProjectStore.getState().setProjectName('待移除项目')
-    useProjectStore.getState().addLight('point')
+    useProjectStore.getState().addLight('directional')
     useProjectStore.getState().resetProjectState()
 
     expect(useProjectStore.getState().projectName).toBe('未命名精灵项目')
-    expect(useProjectStore.getState().lighting.lights).toHaveLength(2)
+    expect(useProjectStore.getState().lighting.lights).toHaveLength(1)
     expect(useProjectStore.getState().palettePresets).toHaveLength(1)
     expect(useProjectStore.getState().past).toHaveLength(0)
   })

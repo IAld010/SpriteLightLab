@@ -15,7 +15,6 @@ import type {
 } from '../domain/types'
 import { renderCpuSprite } from './CpuSpriteRenderer'
 import { computeAlignedSpriteScale } from './previewScale'
-import { objectRectFromCenter } from './lightingGeometry'
 import { registerPreviewExporter, unregisterPreviewExporter, type PreviewExporter } from './previewExportRegistry'
 
 export interface PreviewAppearance {
@@ -55,8 +54,6 @@ export class PreviewRenderer implements PreviewExporter {
   private displayScale = 1
   private displayX = 0
   private displayY = 0
-  private viewportWidth = 1
-  private viewportHeight = 1
   private currentToken = 0
   private resizeHandler = () => {
     this.layout()
@@ -267,31 +264,14 @@ export class PreviewRenderer implements PreviewExporter {
         specularStrength: 0.35,
         pixelPerfect: true,
       },
-      objectRect: this.objectRect(),
       debugNormal: this.textureMode === 'normal',
     })
   }
 
-  private objectRect(): [number, number, number, number] {
-    const width = Math.max(this.viewportWidth, 1)
-    const height = Math.max(this.viewportHeight, 1)
-    const textureWidth = Math.max(1, this.sprite?.texture.width ?? 1)
-    const textureHeight = Math.max(1, this.sprite?.texture.height ?? 1)
-    return objectRectFromCenter(
-      this.displayX,
-      this.displayY,
-      textureWidth * this.displayScale,
-      textureHeight * this.displayScale,
-      width,
-      height,
-    )
-  }
   private layout(): void {
     if (!this.app || !this.sprite) return
     const width = this.app.renderer.width / this.app.renderer.resolution
     const height = this.app.renderer.height / this.app.renderer.resolution
-    this.viewportWidth = width
-    this.viewportHeight = height
     const textureWidth = Math.max(1, this.sprite.texture.width)
     const textureHeight = Math.max(1, this.sprite.texture.height)
 

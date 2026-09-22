@@ -1,5 +1,4 @@
 import { buildPaletteLut, hexToRgb } from '../domain/palette'
-import { lightPointToObject, type ObjectRect } from './lightingGeometry'
 import type {
   ColorAdjustments,
   ColorRule,
@@ -22,7 +21,6 @@ export interface CpuRenderInput {
   palette: PalettePreset
   lighting: LightingState
   preferences: RenderPreferences
-  objectRect: ObjectRect
   debugNormal?: boolean
 }
 
@@ -118,66 +116,27 @@ export function decodeNormalChannel(value: number): number {
   return Math.abs(decoded) < 0.01 ? 0 : decoded
 }
 export function lightContribution(
-  x: number,
-  y: number,
   normalX: number,
   normalY: number,
   normalZ: number,
-  frameAspect: number,
   light: LightSource,
-  objectRect: ObjectRect,
 ): LightSample {
-  const [localX, localY] = lightPointToObject(light.x, light.y, objectRect)
-  const aspect = Math.max(frameAspect, 0.0001)
-  let directionX = 0
-  let directionY = 0
-  let attenuation = 1
-  let cone = 1
-  let sourceCore = 0
-  if (light.type === 'directional') {
-    const radians = (light.direction * Math.PI) / 180
-    directionX = -Math.cos(radians)
-    directionY = -Math.sin(radians)
-  } else {
-    const deltaX = localX - x
-    const deltaY = (localY - y) / aspect
-    const distance = Math.max(Math.sqrt(deltaX * deltaX + deltaY * deltaY), 0.0001)
-    const radius = Math.max(light.radius, 0.0001)
-    attenuation = Math.max(1 - distance / radius, 0) ** Math.max(light.falloff, 0.1)
-    sourceCore = Math.max(1 - distance / 0.025, 0) ** 2 * light.intensity * 0.4
-    const inverseDistance = 1 / distance
-    directionX = deltaX * inverseDistance
-    directionY = deltaY * inverseDistance
-    if (light.type === 'spot') {
-      const radians = (light.direction * Math.PI) / 180
-      const rayX = Math.cos(radians)
-      const rayY = Math.sin(radians)
-      const toPixelX = -directionX
-      const toPixelY = -directionY
-      const dot = rayX * toPixelX + rayY * toPixelY
-      const inner = Math.cos((light.innerAngle * Math.PI) / 360)
-      const outer = Math.cos((light.outerAngle * Math.PI) / 360)
-      cone =
-        distance <= 0.001
-          ? 1
-          : clamp((dot - outer) / Math.max(inner - outer, 0.0001))
-      cone = cone * cone * (3 - 2 * cone)
-    }
-  }
-
-  const surfaceZ = light.type === 'directional' ? 0.78 : 0.7
-  const directionLength = Math.sqrt(directionX * directionX + directionY * directionY + surfaceZ * surfaceZ)
+  const radians = (light.direction * Math.PI) / 180
+  const directionX = -Math.cos(radians)
+  const directionY = -Math.sin(radians)
+  const surfaceZ = 0.78
+  const directionLength = Math.sqrt(
+    directionX * directionX + directionY * directionY + surfaceZ * surfaceZ,
+  )
   const lightX = directionX / directionLength
   const lightY = directionY / directionLength
   const lightZ = surfaceZ / directionLength
   const diffuse = Math.max(normalX * lightX + normalY * lightY + normalZ * lightZ, 0)
-  const contribution = light.intensity * diffuse * attenuation * cone + sourceCore
+  const contribution = light.intensity * diffuse
   if (contribution <= 0) {
     return { diffuse: 0, specular: 0 }
   }
 
-  // View direction is the canvas normal. Blinn-Phong keeps the highlight
-  // independent from albedo while remaining directional for normal maps.
   const halfX = lightX
   const halfY = lightY
   const halfZ = lightZ + 1
@@ -187,12 +146,11 @@ export function lightContribution(
       normalY * (halfY / halfLength) +
       normalZ * (halfZ / halfLength),
   )
-  const specular =
-    specularDot ** 32 * light.intensity * attenuation * cone + sourceCore * 0.35
-
-  return { diffuse: contribution, specular }
+  return {
+    diffuse: contribution,
+    specular: specularDot ** 32 * light.intensity,
+  }
 }
-
 export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
   const { frame, color, normal, outputWidth, outputHeight } = input
   const canvas = document.createElement('canvas')
@@ -272,16 +230,7 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
 
         for (const light of input.lighting.lights) {
           if (!light.enabled) continue
-          const sample = lightContribution(
-            (x + 0.5) / outputWidth,
-            (y + 0.5) / outputHeight,
-            normalX,
-            normalY,
-            normalZ,
-            outputWidth / outputHeight,
-            light,
-            input.objectRect,
-          )
+          const sample = lightContribution(normalX, normalY, normalZ, light)
           if (sample.diffuse <= 0) continue
           const lightColor = hexToRgb(light.color)
           const linearRed = toLinear(lightColor.r / 255)
