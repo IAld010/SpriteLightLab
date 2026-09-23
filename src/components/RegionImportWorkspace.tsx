@@ -418,7 +418,7 @@ export function RegionImportWorkspace({
         {warnings.map((warning, index) => (
           <div className="warning-card warning-error" key={`${warning.code}:${index}`}>
             <strong>{t('阻止导入')}</strong>
-            <span>{warning.message}</span>
+            <span>{t(warning.message)}</span>
           </div>
         ))}
       </aside>

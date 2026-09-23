@@ -1995,3 +1995,140 @@ test('manual matching page pairs images with different names by drag and drop', 
   await page.locator('.inspector-tabs-four button').nth(2).click()
   await expect(page.locator('.inspector-content .field select').first()).not.toHaveValue('')
 })
+
+test('the pan tool scrolls the drawing viewport', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.getByTestId('open-project-editor').click()
+  await expect(page.locator('.drawing-display-canvas')).toBeVisible()
+  // Zoom until the sprite is larger than the viewport so there is something to scroll.
+  await page.getByTestId('drawing-zoom-slider').fill('32')
+  await page.waitForTimeout(200)
+  await page.locator('.drawing-tool-button[data-tool="hand"]').click()
+  await expect(page.getByTestId('drawing-canvas-stack')).toHaveClass(/is-pan-ready/)
+
+  const viewport = page.locator('.drawing-viewport')
+  const readScroll = () => viewport.evaluate((element) => ({ left: element.scrollLeft, top: element.scrollTop }))
+  const before = await readScroll()
+  const bounds = await viewport.boundingBox()
+  if (!bounds) throw new Error('Drawing viewport not found')
+  const centerX = bounds.x + bounds.width / 2
+  const centerY = bounds.y + bounds.height / 2
+  await page.mouse.move(centerX, centerY)
+  await page.mouse.down()
+  await page.mouse.move(centerX - 140, centerY - 110, { steps: 8 })
+  await page.mouse.up()
+  const after = await readScroll()
+
+  expect(after.left - before.left).toBeGreaterThan(80)
+  expect(after.top - before.top).toBeGreaterThan(60)
+})
+
+test('the editor refinement toggle hides and restores painted layers', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.getByTestId('open-project-editor').click()
+  const canvas = page.locator('.drawing-display-canvas')
+  await expect(canvas).toBeVisible()
+  await page.locator('.color-panel input[type="color"]').fill('#ff00ff')
+
+  const bounds = await canvas.boundingBox()
+  if (!bounds) throw new Error('Drawing canvas not found')
+  await page.mouse.move(bounds.x + bounds.width * 0.3, bounds.y + bounds.height * 0.3)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + bounds.width * 0.45, bounds.y + bounds.height * 0.45, { steps: 4 })
+  await page.mouse.up()
+  await page.mouse.move(bounds.x - 60, bounds.y - 60)
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+
+  const toggle = page.getByRole('button', { name: '显示细化' })
+  await toggle.click()
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(false)
+  await toggle.click()
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+})
+
+test('moving a selection keeps a single offset instead of drifting', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.getByTestId('open-project-editor').click()
+  const canvas = page.locator('.drawing-display-canvas')
+  await expect(canvas).toBeVisible()
+  // Pin the zoom so CSS pixels map to a known number of sprite pixels.
+  await page.getByTestId('drawing-zoom-slider').fill('8')
+  await page.waitForTimeout(150)
+  const zoomLabel = await page.getByTestId('drawing-zoom-value').innerText()
+  const scale = Number(zoomLabel.replace(/[^0-9]/g, '')) / 100
+  expect(scale).toBe(8)
+  const bounds = await canvas.boundingBox()
+  if (!bounds) throw new Error('Drawing canvas not found')
+
+  await page.locator('.drawing-tool-button[data-tool="select"]').click()
+  await page.mouse.move(bounds.x + bounds.width * 0.2, bounds.y + bounds.height * 0.2)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + bounds.width * 0.4, bounds.y + bounds.height * 0.4, { steps: 4 })
+  await page.mouse.up()
+
+  const actions = page.getByTestId('selection-actions')
+  await expect(actions).toBeVisible()
+  const readOrigin = async () => {
+    const label = await actions.locator('span').innerText()
+    const [position] = label.split('·')
+    const [x, y] = position.trim().split(',').map((value) => Number(value))
+    return { x, y }
+  }
+  const before = await readOrigin()
+
+  await page.locator('.drawing-tool-button[data-tool="move"]').click()
+  await page.mouse.move(bounds.x + bounds.width * 0.3, bounds.y + bounds.height * 0.3)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + bounds.width * 0.3 + 32, bounds.y + bounds.height * 0.3 + 16, { steps: 8 })
+  await page.mouse.up()
+  const after = await readOrigin()
+
+  // 32 CSS px at the pinned 8x zoom is 4 sprite pixels; drift would overshoot far beyond that.
+  expect(after.x - before.x).toBeGreaterThanOrEqual(3)
+  expect(after.x - before.x).toBeLessThanOrEqual(6)
+  expect(after.y - before.y).toBeGreaterThanOrEqual(1)
+  expect(after.y - before.y).toBeLessThanOrEqual(4)
+})
+
+test('the hex field only commits a complete colour', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.getByTestId('open-project-editor').click()
+  await expect(page.locator('.drawing-display-canvas')).toBeVisible()
+
+  const swatch = page.locator('.color-editor-row input[type="color"]')
+  const hex = page.locator('.color-editor-row input[aria-label="十六进制"]')
+  await hex.fill('#ff')
+  await expect(hex).toHaveValue('#ff')
+  await expect(swatch).not.toHaveValue('#ff')
+
+  await hex.fill('#112233')
+  await expect(hex).toHaveValue('#112233')
+  await expect(swatch).toHaveValue('#112233')
+})
+
+test('English mode leaves no Chinese in toolbar actions or inspector tabs', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'English' }).click()
+  const cjk = /[\u4e00-\u9fa5]/
+
+  const toolbarLabels = await page.locator('.toolbar-actions button').allInnerTexts()
+  expect(toolbarLabels.filter((text) => cjk.test(text))).toEqual([])
+  const tabLabels = await page.locator('.inspector-panel [role="tablist"] button').allInnerTexts()
+  expect(tabLabels.filter((text) => cjk.test(text))).toEqual([])
+
+  const tabCount = await page.locator('.inspector-panel [role="tablist"] button').count()
+  for (let index = 0; index < tabCount; index += 1) {
+    await page.locator('.inspector-panel [role="tablist"] button').nth(index).click()
+    const headings = await page
+      .locator('.inspector-panel .inspector-section > strong, .inspector-panel .section-title-row > strong')
+      .allInnerTexts()
+    expect(headings.filter((text) => cjk.test(text))).toEqual([])
+    // Buttons carry labels (not user data), so none of them may stay Chinese in English mode.
+    const buttons = await page.locator('.inspector-panel button').allInnerTexts()
+    expect(buttons.filter((text) => cjk.test(text))).toEqual([])
+  }
+})

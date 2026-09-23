@@ -53,6 +53,7 @@ const EN_TRANSLATIONS: Record<string, string> = {
   '显示细化': 'Show refinement',
   '只查看源图': 'Source only',
   '帧事件': 'Frame events',
+  '当前帧没有事件': 'No events on this frame',
   '摄像机抖动': 'Camera shake',
   '轻击': 'Light hit',
   '重击': 'Heavy hit',
@@ -78,12 +79,17 @@ const EN_TRANSLATIONS: Record<string, string> = {
   '保存中…': 'Saving…',
   '项目已保存。': 'Project saved.',
   '项目已打开。': 'Project opened.',
+  '正在打开项目…': 'Opening project…',
+  '请先导入匹配的素材，再载入轻量项目配置。':
+    'Import matching sprites first, then load the lightweight project config.',
+  '项目配置已应用到当前素材。': 'Project settings applied to the current sprites.',
   '保存失败，请重试。': 'Save failed. Please try again.',
   '绘画画布': 'Drawing canvas',
   '请先打开一个精灵项目。': 'Open a sprite project first.',
   '请选择一帧。': 'Select a frame first.',
   '没有细化图层': 'No refinement layer',
   '笔刷一笔提交一次，支持 Ctrl+Z 撤销': 'Each stroke commits once; Ctrl+Z undoes it',
+  '请先用矩形选区框选区域，再拖动移动。': 'Select a rectangle first, then drag to move it.',
   '图层': 'Layers',
   '新建': 'New',
   '隐藏图层': 'Hide layer',
@@ -381,6 +387,36 @@ const EN_TRANSLATIONS: Record<string, string> = {
   'ZIP 导出失败。': 'Failed to export ZIP.',
   '导出 ZIP 项目包': 'Export ZIP project package',
   '导入项目': 'Import project',
+  '未命名精灵项目': 'Untitled sprite project',
+  '默认': 'Default',
+  '导入色板': 'Imported palette',
+  '网格参数必须使用正整数；边距和间距不能为负数。':
+    'Grid values must be positive integers; offsets and spacing cannot be negative.',
+  '没有可用的图集 JSON。请检查 frames 数据结构。':
+    'No usable atlas JSON found. Check the frames data structure.',
+  '图集 JSON 已找到，但没有可读取的图片文件。':
+    'Atlas JSON found, but no readable image files.',
+  '检测到旋转打包帧。首版无法安全共用颜色与法线 UV，请重新以非旋转方式打包。':
+    'Rotated packed frames detected. Color and normal UVs cannot be shared safely; repack without rotation.',
+  '法线图集没有 JSON，已按颜色图集的尺寸与 UV 布局进行配对，请人工确认。':
+    'The normal atlas has no JSON; it was paired using the color atlas size and UV layout. Please confirm manually.',
+  '没有找到不含 _n/_normal 后缀的精灵颜色图。':
+    'No sprite color image without a _n/_normal suffix was found.',
+  '没有找到可导入的 PNG 图片。': 'No importable PNG images were found.',
+  '项目文件版本或结构不受支持。': 'Unsupported project file version or structure.',
+  '区域检测已取消。': 'Region detection cancelled.',
+  '无法读取图片像素。': 'Unable to read image pixels.',
+  '至少需要一个有效区域。可以自动检测，也可以手动添加矩形。':
+    'At least one valid region is required. Detect automatically or add rectangles manually.',
+  '区域必须是整数，并且不能超出颜色大图范围。':
+    'Regions must be integers and stay inside the color sheet.',
+  'ZIP 中没有可读取的本地文件条目。': 'No readable local file entries in the ZIP.',
+  '无法生成 PNG。': 'Unable to generate PNG.',
+  '无法创建图集画布。': 'Unable to create the atlas canvas.',
+  '无法读取导出画布。': 'Unable to read the export canvas.',
+  '不是受支持的 Sprite Light Lab 自包含 JSON 项目。':
+    'Not a supported Sprite Light Lab portable JSON project.',
+  'ZIP 中缺少 project.json。': 'The ZIP is missing project.json.',
   '项目导入完成。': 'Project imported.',
   '项目导入失败。': 'Failed to import project.',
   '渲染选项': 'Render options',
@@ -605,6 +641,26 @@ const DYNAMIC_TRANSLATIONS: Array<[RegExp, string]> = [
   [/^图片为 (.+)，超过自动检测上限 (.+) 像素。请先缩小图片或改用手动区域。$/, 'Image is $1, exceeding the $2 pixel detection limit. Resize it or use manual regions.'],
   [/^ZIP 条目 (.+) 使用了不支持的压缩方式 (.+)。$/, 'ZIP entry $1 uses unsupported compression method $2.'],
   [/^ZIP 条目 (.+) 使用了不支持的数据描述符。$/, 'ZIP entry $1 uses unsupported data descriptors.'],
+  [/^细化层 (\d+)$/, 'Layer $1'],
+  [/^已导出\s*(.+)：(.+)$/, 'Exported $1: $2'],
+  [/^(.+)导出失败。$/, 'Failed to export $1.'],
+  [/^无法生成演示文件 (.+)$/, 'Unable to create the demo file $1.'],
+  [
+    /^(.+) 与 (.+) 的像素尺寸不一致：精灵图 (.+)，法线图 (.+)。颜色图与法线图必须尺寸完全相同。$/,
+    'Pixel sizes differ between $1 and $2: sprite $3, normal $4. Color and normal maps must be exactly the same size.',
+  ],
+  [
+    /^(.+) 匹配到多张同名法线图，已选择第一张，可在配对面板中校正。$/,
+    '$1 matched several normal maps; the first one was used. Fix it in the pairing panel.',
+  ],
+  [/^动作 (.+) 引用了不存在的帧 (.+)，该引用已跳过。$/, 'Action $1 referenced a missing frame $2; the reference was skipped.'],
+  [/^(.+) 解析失败。$/, 'Failed to parse $1.'],
+  [/^颜色图集与法线图集布局不一致：(.+)$/, 'Color and normal atlas layouts differ: $1'],
+  [/^(.+) 的法线配对被阻止，请手动校正。$/, 'Normal pairing was blocked for $1. Fix it manually.'],
+  [/^(.+) 未配对法线图，预览将使用平坦法线。$/, '$1 has no paired normal map; the preview will use a flat normal.'],
+  [/^(.+) 张逐帧图片$/, '$1 frame images'],
+  [/^配色 (.+)$/, 'Palette $1'],
+  [/^(.+) 副本$/, '$1 copy'],
 ]
 
 function readStoredLanguage(): Language {

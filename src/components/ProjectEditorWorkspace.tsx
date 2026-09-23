@@ -44,6 +44,9 @@ export function ProjectEditorWorkspace({ saveStatus, onSave, onExit }: ProjectEd
   const updateOnionSkin = useRefinementStore((state) => state.updateOnionSkin)
   const setNotice = useEditorStore((state) => state.setNotice)
   const [packageBusy, setPackageBusy] = useState(false)
+  /** Half-typed hex input; undefined means "show the committed colour". */
+  const [hexDraft, setHexDraft] = useState<string>()
+  const hexValue = hexDraft ?? primaryColor
 
   if (!bundle || !frame || !action) {
     return (
@@ -119,7 +122,20 @@ export function ProjectEditorWorkspace({ saveStatus, onSave, onExit }: ProjectEd
             <header><strong>{t('颜色')}</strong><span>{t(toolLabel)}</span></header>
             <div className="color-editor-row">
               <input type="color" value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} aria-label={t('颜色')} />
-              <input value={primaryColor} onChange={(event) => /^#[0-9a-f]{0,6}$/i.test(event.target.value) && setPrimaryColor(event.target.value)} aria-label={t('十六进制')} />
+              <input
+                value={hexValue}
+                onChange={(event) => {
+                  const next = event.target.value
+                  setHexDraft(next)
+                  // Only commit a complete colour so half-typed input cannot paint white.
+                  if (/^#[0-9a-f]{6}$/i.test(next)) {
+                    setPrimaryColor(next)
+                    setHexDraft(undefined)
+                  }
+                }}
+                onBlur={() => setHexDraft(undefined)}
+                aria-label={t('十六进制')}
+              />
             </div>
             <label className="compact-field">
               <span>{t('笔刷大小')}</span>

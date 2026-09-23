@@ -6176,6 +6176,22 @@ img {
   color: var(--vibrancy-text-muted);
 }
 
+/* Pan tool: grab cursors while the hand tool or Space is held. */
+.drawing-canvas-stack.is-pan-ready,
+.drawing-canvas-stack.is-pan-ready .drawing-display-canvas {
+  cursor: grab;
+}
+
+.drawing-canvas-stack.is-panning,
+.drawing-canvas-stack.is-panning .drawing-display-canvas {
+  cursor: grabbing;
+}
+
+.drawing-canvas-stack.is-pan-ready .drawing-display-canvas.is-brush-cursor,
+.drawing-canvas-stack.is-panning .drawing-display-canvas.is-brush-cursor {
+  cursor: inherit;
+}
+
 /* Editor bottom bar: three equally sized actions, with the long label fitting cleanly. */
 .editor-bottom-actions .editor-toolbar-button {
   min-width: 96px;

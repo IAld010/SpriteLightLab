@@ -183,7 +183,7 @@ export function AnchorCalibrationPanel() {
             aria-label="Anchor calibration zoom"
             onChange={(event) => setZoom(Number(event.target.value))}
           />
-          <output>{zoom}?</output>
+          <output>{zoom}{'\u00d7'}</output>
         </label>
       </section>
 

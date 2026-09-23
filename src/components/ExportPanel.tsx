@@ -323,7 +323,9 @@ export function ExportPanel({ bundle, projectName }: ExportPanelProps) {
       <p className="field-help" data-testid="export-status">
         {busy
           ? t('正在导出 {label}…', { label: busy })
-          : message ?? t('序列导出含 manifest.json；图集导出会同时给出图集图片与元数据。')}
+          : message
+            ? t(message)
+            : t('序列导出含 manifest.json；图集导出会同时给出图集图片与元数据。')}
       </p>
     </section>
   )

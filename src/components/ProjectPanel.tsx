@@ -51,7 +51,7 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary }: ProjectPanelProp
 
       <section className="inspector-section">
         <button type="button" className="button full-width-button" onClick={onOpenLibrary}>
-          {'\u6253\u5f00\u9879\u76ee\u5e93\u4e0e\u79fb\u9664\u9879\u76ee'}
+          {t('打开项目库与移除项目')}
         </button>
       </section>
 

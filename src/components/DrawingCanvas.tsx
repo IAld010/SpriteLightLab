@@ -27,6 +27,8 @@ interface PointerState {
   imageData?: ImageData
   strokePoints?: PixelPoint[]
   selectionPixels?: ImageData
+  /** Selection origin taken at pointerdown so dragging cannot accumulate offsets. */
+  selectionOrigin?: PixelPoint
   moved: boolean
 }
 
@@ -96,11 +98,19 @@ export function DrawingCanvas() {
   const celCanvasCacheRef = useRef<Map<string, HTMLCanvasElement>>(new Map())
   const pointerRef = useRef<PointerState | undefined>(undefined)
   const spacePressedRef = useRef(false)
+  const panOriginRef = useRef<
+    { clientX: number; clientY: number; scrollLeft: number; scrollTop: number } | undefined
+  >(undefined)
   const [viewScale, setViewScale] = useState(8)
   const [selection, setSelection] = useState<SelectionRect>()
   const [cursor, setCursor] = useState<PixelPoint>()
   const [drawVersion, setDrawVersion] = useState(0)
   const [message, setMessage] = useState<string>()
+  const [spaceHeld, setSpaceHeld] = useState(false)
+  const [panning, setPanning] = useState(false)
+  /** Composite without grid lines or cursor overlay, used by the eyedropper. */
+  const sampleCanvasRef = useRef<HTMLCanvasElement | undefined>(undefined)
+  const showRefinement = useEditorStore((state) => state.settings.showRefinement !== false)
 
   const bundle = useEditorStore((state) => state.bundle)
   const frame = useEditorStore((state) => getCurrentFrame(state))
@@ -152,7 +162,7 @@ export function DrawingCanvas() {
       context.drawImage(baseCanvasRef.current, 0, 0)
       context.restore()
     }
-    if (refinement) {
+    if (showRefinement && refinement) {
       for (const layer of refinement.layers) {
         if (!layer.visible) continue
         if (layer.id === activeLayerId) {
@@ -174,6 +184,17 @@ export function DrawingCanvas() {
         context.drawImage(cached, cel?.offsetX ?? 0, cel?.offsetY ?? 0)
         context.restore()
       }
+    }
+    const sample = sampleCanvasRef.current ?? document.createElement('canvas')
+    sampleCanvasRef.current = sample
+    if (sample.width !== canvas.width || sample.height !== canvas.height) {
+      sample.width = canvas.width
+      sample.height = canvas.height
+    }
+    const sampleContext = sample.getContext('2d', { willReadFrequently: true })
+    if (sampleContext) {
+      sampleContext.clearRect(0, 0, sample.width, sample.height)
+      sampleContext.drawImage(canvas, 0, 0)
     }
     if (pixelGrid && viewScale >= 4) {
       context.save()
@@ -202,7 +223,7 @@ export function DrawingCanvas() {
       }
       context.restore()
     }
-  }, [activeLayerId, brushSize, cursor, pixelGrid, refinement, tool, viewScale])
+  }, [activeLayerId, brushSize, cursor, pixelGrid, refinement, showRefinement, tool, viewScale])
 
   useEffect(() => {
     if (!bundle || !frame || !palette) return
@@ -375,12 +396,20 @@ export function DrawingCanvas() {
     setCursor(point)
     const activeTool = spacePressedRef.current ? 'hand' : tool
     if (activeTool === 'hand') {
+      const viewport = viewportRef.current
       event.currentTarget.setPointerCapture(event.pointerId)
       pointerRef.current = { id: event.pointerId, tool: 'hand', start: point, last: point, moved: false }
+      panOriginRef.current = {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        scrollLeft: viewport?.scrollLeft ?? 0,
+        scrollTop: viewport?.scrollTop ?? 0,
+      }
+      setPanning(true)
       return
     }
     if (activeTool === 'eyedropper') {
-      const context = displayCanvasRef.current?.getContext('2d', { willReadFrequently: true })
+      const context = sampleCanvasRef.current?.getContext('2d', { willReadFrequently: true })
       const sample = context?.getImageData(point.x, point.y, 1, 1).data
       if (sample) useRefinementStore.getState().setPrimaryColor(`#${[sample[0], sample[1], sample[2]].map((value) => value.toString(16).padStart(2, '0')).join('')}`)
       return
@@ -414,6 +443,10 @@ export function DrawingCanvas() {
     } else if (activeTool === 'move' && selection) {
       pointer.snapshot = context.getImageData(0, 0, layerCanvasRef.current.width, layerCanvasRef.current.height)
       pointer.selectionPixels = context.getImageData(selection.x, selection.y, selection.width, selection.height)
+      pointer.selectionOrigin = { x: selection.x, y: selection.y }
+    } else if (activeTool === 'move') {
+      setMessage('请先用矩形选区框选区域，再拖动移动。')
+      return
     } else if (activeTool === 'bucket') {
       const original = context.getImageData(0, 0, layerCanvasRef.current.width, layerCanvasRef.current.height)
       const imageData = new ImageData(new Uint8ClampedArray(original.data), original.width, original.height)
@@ -434,7 +467,16 @@ export function DrawingCanvas() {
     const pointer = pointerRef.current
     if (!pointer || pointer.id !== event.pointerId) return
     pointer.moved = pointer.moved || pointer.last.x !== point.x || pointer.last.y !== point.y
-    if (pointer.tool === 'hand') { pointer.last = point; return }
+    if (pointer.tool === 'hand') {
+      const viewport = viewportRef.current
+      const origin = panOriginRef.current
+      if (viewport && origin) {
+        viewport.scrollLeft = origin.scrollLeft - (event.clientX - origin.clientX)
+        viewport.scrollTop = origin.scrollTop - (event.clientY - origin.clientY)
+      }
+      pointer.last = point
+      return
+    }
     const prepared = prepareLayer()
     const layerCanvas = layerCanvasRef.current
     const context = layerCanvas?.getContext('2d', { willReadFrequently: true })
@@ -481,12 +523,15 @@ export function DrawingCanvas() {
     } else if (pointer.tool === 'select') {
       setSelection(normalizeRect(pointer.start, point))
     } else if (pointer.tool === 'move' && pointer.snapshot && pointer.selectionPixels) {
-      context.putImageData(pointer.snapshot, 0, 0)
-      context.clearRect(selection?.x ?? 0, selection?.y ?? 0, selection?.width ?? 0, selection?.height ?? 0)
+      const origin = pointer.selectionOrigin ?? { x: selection?.x ?? 0, y: selection?.y ?? 0 }
+      const width = selection?.width ?? 1
+      const height = selection?.height ?? 1
       const offsetX = point.x - pointer.start.x
       const offsetY = point.y - pointer.start.y
-      context.putImageData(pointer.selectionPixels, (selection?.x ?? 0) + offsetX, (selection?.y ?? 0) + offsetY)
-      setSelection({ x: (selection?.x ?? 0) + offsetX, y: (selection?.y ?? 0) + offsetY, width: selection?.width ?? 1, height: selection?.height ?? 1 })
+      context.putImageData(pointer.snapshot, 0, 0)
+      context.clearRect(origin.x, origin.y, width, height)
+      context.putImageData(pointer.selectionPixels, origin.x + offsetX, origin.y + offsetY)
+      setSelection({ x: origin.x + offsetX, y: origin.y + offsetY, width, height })
       setDrawVersion((value) => value + 1)
     }
     pointer.last = point
@@ -496,7 +541,12 @@ export function DrawingCanvas() {
     const pointer = pointerRef.current
     if (!pointer || pointer.id !== event.pointerId) return
     pointerRef.current = undefined
-    if (pointer.tool === 'hand' || pointer.tool === 'select' || pointer.tool === 'eyedropper') return
+    if (pointer.tool === 'hand') {
+      panOriginRef.current = undefined
+      setPanning(false)
+      return
+    }
+    if (pointer.tool === 'select' || pointer.tool === 'eyedropper') return
     const prepared = prepareLayer()
     if (prepared) void commitLayer(prepared.layerId, prepared.width, prepared.height)
   }
@@ -511,7 +561,7 @@ export function DrawingCanvas() {
     context.clearRect(selection.x, selection.y, selection.width, selection.height)
     setDrawVersion((value) => value + 1)
     setSelection(undefined)
-    setMessage('???????')
+    setMessage('已删除选区像素')
     await commitLayer(prepared.layerId, prepared.width, prepared.height)
   }, [commitLayer, prepareLayer, selection])
 
@@ -530,7 +580,12 @@ export function DrawingCanvas() {
         setSelection(undefined)
         return
       }
-      if (event.code === 'Space') { spacePressedRef.current = true; event.preventDefault(); return }
+      if (event.code === 'Space') {
+        spacePressedRef.current = true
+        setSpaceHeld(true)
+        event.preventDefault()
+        return
+      }
       const key = event.key.toLowerCase()
       if ((event.ctrlKey || event.metaKey) && (key === '=' || key === '+')) {
         event.preventDefault()
@@ -551,7 +606,11 @@ export function DrawingCanvas() {
       else if (key === 'm') setTool('select')
     }
     const up = (event: KeyboardEvent) => {
-      if (event.code === 'Space') { spacePressedRef.current = false; event.preventDefault() }
+      if (event.code === 'Space') {
+        spacePressedRef.current = false
+        setSpaceHeld(false)
+        event.preventDefault()
+      }
     }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
@@ -593,7 +652,11 @@ export function DrawingCanvas() {
         </div>
       </div>
       <div ref={viewportRef} className="drawing-viewport">
-        <div className="drawing-canvas-stack" style={{ width: frameWidth * viewScale, height: frameHeight * viewScale }}>
+        <div
+          data-testid="drawing-canvas-stack"
+          className={`drawing-canvas-stack ${tool === 'hand' || spaceHeld ? 'is-pan-ready' : ''} ${panning ? 'is-panning' : ''}`}
+          style={{ width: frameWidth * viewScale, height: frameHeight * viewScale }}
+        >
           <canvas
             ref={displayCanvasRef}
             width={frameWidth}
@@ -627,15 +690,15 @@ export function DrawingCanvas() {
       {selection && (
         <div className="selection-actions" data-testid="selection-actions">
           <span>{selection.x},{selection.y} · {selection.width}×{selection.height}</span>
-          <button type="button" onClick={() => setSelection(undefined)}>取消选区</button>
-          <button type="button" onClick={() => void deleteSelection()}>删除选区</button>
+          <button type="button" onClick={() => setSelection(undefined)}>{t('取消选区')}</button>
+          <button type="button" onClick={() => void deleteSelection()}>{t('删除选区')}</button>
         </div>
       )}
       <div className="drawing-statusbar">
         <span>{cursor ? `${cursor.x}, ${cursor.y}` : '\u2014'}</span>
         <span>{frameWidth} {'\u00d7'} {frameHeight}</span>
         <span>{activeLayer?.name ?? t('\u6ca1\u6709\u7ec6\u5316\u56fe\u5c42')}</span>
-        <span>{message ?? t('\u7b14\u5237\u4e00\u7b14\u63d0\u4ea4\u4e00\u6b21\uff0c\u652f\u6301 Ctrl+Z \u64a4\u9500')}</span>
+        <span>{message ? t(message) : t('\u7b14\u5237\u4e00\u7b14\u63d0\u4ea4\u4e00\u6b21\uff0c\u652f\u6301 Ctrl+Z \u64a4\u9500')}</span>
       </div>
     </section>
   )
