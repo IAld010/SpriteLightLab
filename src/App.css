@@ -6189,3 +6189,13 @@ img {
 .export-section .field-help {
   color: var(--vibrancy-text-muted);
 }
+
+/* Editor bottom bar: three equally sized actions, with the long label fitting cleanly. */
+.editor-bottom-actions .editor-toolbar-button {
+  min-width: 96px;
+}
+
+.editor-toolbar-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

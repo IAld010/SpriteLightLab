@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { DrawingCanvas } from './DrawingCanvas'
 import { CompactFrameStrip } from './CompactFrameStrip'
 import { RefinementLayerPanel } from './RefinementLayerPanel'
+import { currentProjectFileName, exportCurrentProjectZip } from '../services/currentProjectSnapshot'
 import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
 import { useProjectStore } from '../store/projectStore'
 import { useRefinementStore } from '../store/refinementStore'
+import { downloadBlob } from '../utils/download'
 import { useI18n } from '../i18n'
 
 interface ProjectEditorWorkspaceProps {
@@ -39,6 +42,8 @@ export function ProjectEditorWorkspace({ saveStatus, onSave, onExit }: ProjectEd
   const setPixelGrid = useRefinementStore((state) => state.setPixelGrid)
   const onionSkin = useRefinementStore((state) => state.onionSkin)
   const updateOnionSkin = useRefinementStore((state) => state.updateOnionSkin)
+  const setNotice = useEditorStore((state) => state.setNotice)
+  const [packageBusy, setPackageBusy] = useState(false)
 
   if (!bundle || !frame || !action) {
     return (
@@ -58,6 +63,26 @@ export function ProjectEditorWorkspace({ saveStatus, onSave, onExit }: ProjectEd
         : t('已保存')
   const refinedFrames = Object.values(useRefinementStore.getState().refinements)
     .filter((item) => item.cels.some((cel) => Boolean(cel.bitmapAssetId))).length
+
+  /** Packages the live editing state, including strokes that were not saved yet. */
+  const exportPackage = async () => {
+    setPackageBusy(true)
+    try {
+      const bytes = await exportCurrentProjectZip()
+      downloadBlob(
+        new Blob([bytes.slice().buffer as ArrayBuffer], { type: 'application/zip' }),
+        `${currentProjectFileName()}.spritelab.zip`,
+      )
+      setNotice({ tone: 'success', message: '已导出 ZIP 项目包。' })
+    } catch (error) {
+      setNotice({
+        tone: 'error',
+        message: error instanceof Error ? error.message : 'ZIP 导出失败。',
+      })
+    } finally {
+      setPackageBusy(false)
+    }
+  }
   const paletteColors = bundle.paletteSources.slice(0, 128)
   const toolLabel = tool === 'pencil' ? '铅笔' : tool === 'eraser' ? '橡皮擦' : tool === 'bucket' ? '油漆桶' : tool === 'eyedropper' ? '吸管' : tool === 'line' ? '直线' : tool === 'rectangle' ? '矩形' : tool === 'ellipse' ? '椭圆' : tool === 'select' ? '矩形选区' : tool === 'move' ? '移动选区' : '平移画布'
 
@@ -136,6 +161,15 @@ export function ProjectEditorWorkspace({ saveStatus, onSave, onExit }: ProjectEd
             <button type="button" className={language === 'en' ? 'is-active' : ''} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>English</button>
           </div>
           <button type="button" className="editor-toolbar-button" onClick={onExit}>{t('返回预览')}</button>
+          <button
+            type="button"
+            className="editor-toolbar-button"
+            data-testid="editor-export-package"
+            disabled={packageBusy}
+            onClick={() => void exportPackage()}
+          >
+            {packageBusy ? t('导出中…') : t('导出项目包')}
+          </button>
           <button type="button" className="editor-toolbar-button primary" onClick={onSave} disabled={saveStatus === 'saving'} data-testid="editor-save-button">{saveStatus === 'saving' ? t('保存中…') : t('保存')}</button>
         </div>
       </footer>

@@ -5,6 +5,7 @@ import {
   exportCurrentProjectZip,
 } from '../services/currentProjectSnapshot'
 import { importPortableJson, importProjectZip } from '../services/projectIO'
+import { isZipArchive } from '../domain/zip'
 import { useEditorStore } from '../store/editorStore'
 import { downloadBlob } from '../utils/download'
 import type { BackendPreference } from '../domain/types'
@@ -206,11 +207,12 @@ export function Toolbar({
             setNotice({ tone: 'info', message: '正在导入项目包…' })
             try {
               await onBeforeProjectChange()
-              if (file.name.toLowerCase().endsWith('.zip')) {
-                const portable = await importProjectZip(await file.arrayBuffer())
+              const bytes = new Uint8Array(await file.arrayBuffer())
+              if (isZipArchive(bytes)) {
+                const portable = await importProjectZip(bytes)
                 await importProjectFiles(portable.files, portable.document, undefined, portable.refinementAssets)
               } else {
-                const content = await file.text()
+                const content = new TextDecoder().decode(bytes)
                 const parsed = JSON.parse(content) as { format?: string }
                 if (parsed.format === 'sprite-light-lab-portable') {
                   const portable = importPortableJson(content)

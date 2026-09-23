@@ -403,7 +403,19 @@ test('palette, lighting and ZIP project pack work together', async ({ page }) =>
   ])
   const zipPath = await download.path()
   expect(zipPath).toBeTruthy()
-  await page.locator('.toolbar input[type="file"]').nth(0).setInputFiles(zipPath!)
+  expect(download.suggestedFilename()).toMatch(/\.spritelab\.zip$/)
+
+  // Move the palette away from the packaged value so restoring it is provable.
+  await page.locator('.inspector-tabs-four button').nth(0).click()
+  await page.locator('.swatch-row input[type="color"]').first().fill('#ff00ff')
+  await expect(page.locator('.swatch-row input[type="color"]').first()).toHaveValue('#ff00ff')
+
+  await page.locator('.toolbar input[type="file"]').nth(0).setInputFiles({
+    name: 'palette-light.spritelab.zip',
+    mimeType: 'application/zip',
+    buffer: await readFile(zipPath!),
+  })
+  await expect(page.locator('.notice')).toContainText('项目已打开。')
   await page.locator('.inspector-tabs-four button').nth(0).click()
   await expect(page.locator('.swatch-row')).toHaveCount(12)
   await expect(page.locator('.swatch-row input[type="color"]').first()).toHaveValue('#00ffff')
@@ -1163,6 +1175,71 @@ test('rectangular selection draws Photoshop-style marching ants', async ({ page 
     marching = next.signature !== first.signature
   }
   expect(marching).toBe(true)
+})
+
+test('an unfinished refinement travels to a clean device inside the project package', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.getByTestId('open-project-editor').click()
+  const drawingCanvas = page.locator('.drawing-display-canvas')
+  await expect(drawingCanvas).toBeVisible()
+  await page.locator('.color-panel input[type="color"]').fill('#ff00ff')
+
+  // A half-finished edit: one painted layer plus an extra empty layer.
+  const bounds = await drawingCanvas.boundingBox()
+  if (!bounds) throw new Error('Drawing canvas not found')
+  await page.mouse.move(bounds.x + bounds.width * 0.3, bounds.y + bounds.height * 0.3)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + bounds.width * 0.45, bounds.y + bounds.height * 0.45, { steps: 4 })
+  await page.mouse.up()
+  await page.mouse.move(bounds.x - 60, bounds.y - 60)
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+  await page.getByTestId('add-refinement-layer').click()
+  const layerCount = await page.locator('.refinement-layer-row').count()
+  expect(layerCount).toBeGreaterThanOrEqual(3)
+
+  // Deliberately no explicit save: the editor button must carry the live editing state.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('editor-export-package').click(),
+  ])
+  const packagePath = await download.path()
+  expect(packagePath).toBeTruthy()
+  expect(download.suggestedFilename()).toMatch(/\.spritelab\.zip$/)
+  await expect(page.locator('.notice')).toContainText('已导出 ZIP 项目包。')
+
+  // Leaving the editor still keeps the local copy in sync.
+  await page.locator('.editor-toolbar-button').filter({ hasText: '返回预览' }).click()
+  await expect(page.getByTestId('open-project-editor')).toBeEnabled()
+  // Simulate another machine: remove everything local, then reload with an empty repository.
+  await page.getByTestId('open-project-library').click()
+  await page.locator('.project-card').first().getByRole('button', { name: '移除' }).click()
+  await page.getByRole('button', { name: '确认移除' }).click()
+  await page.reload()
+  await expect(page.getByTestId('open-project-editor')).toBeDisabled()
+
+  // Only the package crosses over, and it is recognised by content, not by file extension.
+  const packageBytes = await readFile(packagePath!)
+  await page.locator('.toolbar input[type="file"]').nth(0).setInputFiles({
+    name: 'unfinished-refinement.spritelab.zip',
+    mimeType: 'application/zip',
+    buffer: packageBytes,
+  })
+  await expect(page.locator('.notice')).toContainText('项目已打开。')
+  await expect(page.getByTestId('open-project-editor')).toBeEnabled()
+  await page.getByTestId('open-project-editor').click()
+  await expect(page.locator('.drawing-display-canvas')).toBeVisible()
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+  await expect(page.locator('.refinement-layer-row')).toHaveCount(layerCount)
+
+  // Work continues on the new device: a save plus reload keeps the same layers and pixels.
+  await page.getByTestId('editor-save-button').click()
+  await expect(page.locator('.save-state')).toContainText('已保存')
+  await page.reload()
+  await expect(page.getByTestId('open-project-editor')).toBeEnabled()
+  await page.getByTestId('open-project-editor').click()
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+  await expect(page.locator('.refinement-layer-row')).toHaveCount(layerCount)
 })
 
 test('the first stroke of a new refinement layer lands on the canvas', async ({ page }) => {

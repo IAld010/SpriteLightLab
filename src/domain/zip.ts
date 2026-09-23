@@ -108,6 +108,20 @@ export function createZip(entries: ZipEntry[]): Uint8Array {
   return concat([...localChunks, centralDirectory, end])
 }
 
+/** True when the bytes start with a ZIP signature; file extensions cannot be trusted. */
+export function isZipArchive(input: ArrayBuffer | Uint8Array): boolean {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input)
+  if (bytes.length < 4) return false
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return false
+  const third = bytes[2]
+  const fourth = bytes[3]
+  return (
+    (third === 0x03 && fourth === 0x04) ||
+    (third === 0x05 && fourth === 0x06) ||
+    (third === 0x07 && fourth === 0x08)
+  )
+}
+
 export async function readZipAsync(input: ArrayBuffer | Uint8Array): Promise<ZipEntry[]> {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input)
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)

@@ -47,7 +47,7 @@ export function RefinementLayerPanel() {
       <section className="refinement-section">
         <div className="refinement-section-head">
           <strong>{t('图层')}</strong>
-          <button type="button" onClick={() => addLayer(frame.id, 'raster')}>{t('新建')}</button>
+          <button type="button" data-testid="add-refinement-layer" onClick={() => addLayer(frame.id, 'raster')}>{t('新建')}</button>
         </div>
         <div className="refinement-layer-list">
           {orderedLayers.map((layer) => (

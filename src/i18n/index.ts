@@ -70,6 +70,7 @@ const EN_TRANSLATIONS: Record<string, string> = {
   '洋葱皮': 'Onion skin',
   '像素网格': 'Pixel grid',
   '保存': 'Save',
+  '导出中…': 'Exporting…',
   '保存中…': 'Saving…',
   '项目已保存。': 'Project saved.',
   '项目已打开。': 'Project opened.',
