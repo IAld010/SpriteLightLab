@@ -7,7 +7,7 @@
 >
 > The `Source code (zip)` and `Source code (tar.gz)` files are intended only for developers who want to inspect or rebuild the project.
 >
-> **[Download SpriteLightLab-v1.0.5-win-x64.exe](https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.5/SpriteLightLab-v1.0.5-win-x64.exe)**
+> **[Download SpriteLightLab-v1.0.6-win-x64.exe](https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.6/SpriteLightLab-v1.0.6-win-x64.exe)**
 
 <p align="center">
   <img src="docs/images/app-icon.png" width="144" alt="Sprite Light Lab icon">
@@ -28,7 +28,7 @@
 Windows users can download the self-contained single-file build:
 
 <p align="center">
-  <a href="https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.5/SpriteLightLab-v1.0.5-win-x64.exe"><strong>Download SpriteLightLab v1.0.5</strong></a>
+  <a href="https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.6/SpriteLightLab-v1.0.6-win-x64.exe"><strong>Download SpriteLightLab v1.0.6</strong></a>
 </p>
 
 - Platform: Windows 10 / 11 x64

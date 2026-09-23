@@ -7,7 +7,7 @@
 >
 > GitHub 页面中的 `Source code (zip)` 和 `Source code (tar.gz)` 仅供开发者查看或二次构建使用。
 >
-> **[直接下载 SpriteLightLab-v1.0.5-win-x64.exe](https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.5/SpriteLightLab-v1.0.5-win-x64.exe)**
+> **[直接下载 SpriteLightLab-v1.0.6-win-x64.exe](https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.6/SpriteLightLab-v1.0.6-win-x64.exe)**
 
 <p align="center">
   <img src="docs/images/app-icon.png" width="144" alt="Sprite Light Lab icon">
@@ -28,7 +28,7 @@
 Windows 用户可以直接下载自包含单文件版本：
 
 <p align="center">
-  <a href="https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.5/SpriteLightLab-v1.0.5-win-x64.exe"><strong>下载 SpriteLightLab v1.0.5</strong></a>
+  <a href="https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.6/SpriteLightLab-v1.0.6-win-x64.exe"><strong>下载 SpriteLightLab v1.0.6</strong></a>
 </p>
 
 - 平台：Windows 10 / 11 x64

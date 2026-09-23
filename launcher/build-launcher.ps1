@@ -13,9 +13,20 @@ $resource = Join-Path $PSScriptRoot 'SpriteLightLab.Launcher\Resources\wwwroot.z
 $publishDirectory = Join-Path $PSScriptRoot 'publish'
 $desktopTarget = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'SpriteLightLab.exe'
 
-function Assert-LastExitCode([string]$Step) {
-    if ($LASTEXITCODE -ne 0) {
-        throw "$Step 失败，退出代码：$LASTEXITCODE"
+function Invoke-BuildStep([string]$Step, [scriptblock]$Command) {
+    # npm、vite 和 dotnet 都会把警告写到 stderr，Stop 会把它当成致命错误；这里只认退出码。
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $Command
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
+
+    if ($exitCode -ne 0) {
+        throw "$Step 失败，退出代码：$exitCode"
     }
 }
 
@@ -23,12 +34,10 @@ Push-Location $repo
 try {
     if (-not $SkipFrontendBuild) {
         if (-not (Test-Path -LiteralPath (Join-Path $repo 'node_modules'))) {
-            & npm ci
-            Assert-LastExitCode 'npm ci'
+            Invoke-BuildStep 'npm ci' { npm ci }
         }
 
-        & npm run build
-        Assert-LastExitCode 'npm run build'
+        Invoke-BuildStep 'npm run build' { npm run build }
     }
 
     $distIndex = Join-Path $repo 'dist\index.html'
@@ -64,8 +73,7 @@ try {
         )
     }
 
-    & dotnet publish @publishArguments
-    Assert-LastExitCode 'dotnet publish'
+    Invoke-BuildStep 'dotnet publish' { dotnet publish @publishArguments }
 
     $exe = Join-Path $publishDirectory 'SpriteLightLab.exe'
     if (-not (Test-Path -LiteralPath $exe)) {

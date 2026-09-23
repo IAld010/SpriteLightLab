@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sprite-light-lab-v1.0.5-refinement-1'
+const CACHE_NAME = 'sprite-light-lab-v1.0.6'
 const CORE_ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg']
 
 self.addEventListener('install', (event) => {

@@ -3,7 +3,7 @@
 internal static class AppConstants
 {
     public const string ProductName = "Sprite Light Lab";
-    public const string ProductVersion = "1.0.5";
+    public const string ProductVersion = "1.0.6";
     public const string EmbeddedResourceName = "SpriteLightLab.wwwroot.zip";
     public const string MutexName = @"Local\SpriteLightLab.Launcher";
     public const string ShowEventName = @"Local\SpriteLightLab.Launcher.Show";

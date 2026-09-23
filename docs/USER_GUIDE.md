@@ -1,8 +1,8 @@
 ﻿# Sprite Light Lab 用户使用手册
 
-版本：`1.0.5`  
+版本：`1.0.6`  
 适用平台：Windows 10 / 11 x64  
-更新日期：2026-09-22
+更新日期：2026-09-23
 
 > [!IMPORTANT]
 > 普通用户只需要下载并运行 EXE，**不需要下载项目源代码**。GitHub Release 中的源码压缩包仅供开发者使用。
@@ -58,13 +58,13 @@ WebGPU 不可用时会自动使用 WebGL2。完整功能面向最新版 Edge / C
 
 ### 下载
 
-[下载 SpriteLightLab v1.0.5](https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.5/SpriteLightLab-v1.0.5-win-x64.exe)
+[下载 SpriteLightLab v1.0.6](https://github.com/IAld010/SpriteLightLab/releases/download/v1.0.6/SpriteLightLab-v1.0.6-win-x64.exe)
 
 也可以访问 [Releases 页面](https://github.com/IAld010/SpriteLightLab/releases) 选择其他版本。
 
 ### 运行
 
-1. 将 `SpriteLightLab-v1.0.5-win-x64.exe` 放到任意本地目录。
+1. 将 `SpriteLightLab-v1.0.6-win-x64.exe` 放到任意本地目录。
 2. 双击运行。
 3. 首次运行时如果出现 Windows SmartScreen 提示，选择“更多信息”→“仍要运行”。
 4. 启动器进入“运行中”后，默认浏览器会自动打开。
@@ -76,13 +76,13 @@ WebGPU 不可用时会自动使用 WebGL2。完整功能面向最新版 Edge / C
 下载后可在 PowerShell 中校验：
 
 ```powershell
-Get-FileHash .\SpriteLightLab-v1.0.5-win-x64.exe -Algorithm SHA256
+Get-FileHash .\SpriteLightLab-v1.0.6-win-x64.exe -Algorithm SHA256
 ```
 
-`v1.0.5` 的 SHA-256：
+`v1.0.6` 的 SHA-256：
 
 ```text
-6EF31D251788865E22DA2AF55D9F12D21D755A0AB6719483CE109AE8A9B3A874
+F27524065F5FFD84809D5E2048A61DABB5CE514005A066CFFF1D2185D6B9E15E
 ```
 
 ## 4. 启动与退出
