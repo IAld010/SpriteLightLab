@@ -387,6 +387,7 @@ export class PreviewRenderer implements PreviewExporter {
     return output
   }
 
+  /** 1x1 flat normal: the CPU renderer treats 1x1 data textures as a constant. */
   private getFlatNormal(): ImageData {
     return new ImageData(new Uint8ClampedArray([128, 128, 255, 255]), 1, 1)
   }

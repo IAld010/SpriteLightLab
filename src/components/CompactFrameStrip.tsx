@@ -88,10 +88,6 @@ export function CompactFrameStrip() {
           )
         })}
       </div>
-      <div className="compact-event-lane" title={t('帧事件将在第二阶段实现')}>
-        <span>{t('事件')}</span>
-        <div>{t('第二阶段')}</div>
-      </div>
     </section>
   )
 }

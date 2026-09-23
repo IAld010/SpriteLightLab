@@ -435,20 +435,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   loadDefoldSample: async () => {
-    set({ isImporting: true, notice: { tone: 'info', message: '\u6b63\u5728\u8f7d\u5165 Defold \u793a\u4f8b\u2026' } })
+    set({ isImporting: true, notice: { tone: 'info', message: '正在载入 Defold 示例…' } })
+    let payload: ArrayBuffer | undefined
     try {
       const response = await fetch('/samples/sample-normal-maps-2d.spritelab.zip')
-      if (!response.ok) {
-        throw new Error('\u65e0\u6cd5\u8bfb\u53d6\u5185\u7f6e\u793a\u4f8b\u9879\u76ee\u3002')
+      if (response.ok) {
+        payload = await response.arrayBuffer()
       }
-      const portable = await importProjectZip(await response.arrayBuffer())
+    } catch {
+      payload = undefined
+    }
+    if (!payload) {
+      set({
+        isImporting: false,
+        notice: {
+          tone: 'error',
+          // The sample lives next to the app, so an unreachable fetch means the host stopped serving.
+          message: '内置示例加载失败：请确认本地服务正在运行，然后重试。',
+        },
+      })
+      return
+    }
+    try {
+      const portable = await importProjectZip(payload)
       await get().importProjectFiles(portable.files, portable.document, undefined, portable.refinementAssets)
     } catch (error) {
       set({
         isImporting: false,
         notice: {
           tone: 'error',
-          message: error instanceof Error ? error.message : 'Defold \u793a\u4f8b\u8f7d\u5165\u5931\u8d25\u3002',
+          message: error instanceof Error ? error.message : 'Defold 示例载入失败。',
         },
       })
     }

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
@@ -901,6 +901,28 @@ async function hasCanvasColor(page: Page, color: [number, number, number]): Prom
   }, color)
 }
 
+/**
+ * Decodes the WebGL preview screenshot and counts coloured (non-grey) pixels. The
+ * checkerboard background is pure grey, so it never contributes to the count.
+ * A sprite whose shading went NaN keeps only the origin texel coloured.
+ */
+async function previewColourPixelCount(previewCanvas: Locator): Promise<number> {
+  const shot = await previewCanvas.screenshot()
+  const UPNG = (await import('upng-js')).default
+  const image = UPNG.decode(
+    shot.buffer.slice(shot.byteOffset, shot.byteOffset + shot.byteLength) as ArrayBuffer,
+  )
+  const rgba = new Uint8Array(UPNG.toRGBA8(image)[0])
+  let coloured = 0
+  for (let offset = 0; offset < rgba.length; offset += 4) {
+    if (rgba[offset + 3] <= 128) continue
+    const max = Math.max(rgba[offset], rgba[offset + 1], rgba[offset + 2])
+    const min = Math.min(rgba[offset], rgba[offset + 1], rgba[offset + 2])
+    if (max - min > 10) coloured += 1
+  }
+  return coloured
+}
+
 test('opening a project from the library keeps saved refinement bitmaps', async ({ page }) => {
   await page.goto('/manifest.webmanifest')
   await page.evaluate(async () => {
@@ -1248,6 +1270,10 @@ test('the first stroke of a new refinement layer lands on the canvas', async ({ 
   await page.getByTestId('open-project-editor').click()
   const drawingCanvas = page.locator('.drawing-display-canvas')
   await expect(drawingCanvas).toBeVisible()
+  // The compact frame strip is labels plus frames only; the phase-2 event lane is gone.
+  await expect(page.locator('.compact-event-lane')).toHaveCount(0)
+  await expect(page.locator('.compact-frame-strip')).toHaveCSS('grid-template-columns', /^54px .+/)
+  await expect(page.locator('.compact-frame-cell').first()).toBeVisible()
   await page.locator('.color-panel input[type="color"]').fill('#ff00ff')
 
   const bounds = await drawingCanvas.boundingBox()
@@ -1863,6 +1889,41 @@ test('grid import slices aligned sheets and explains naming and size rules', asy
   await page.reload()
   await expect(page.locator('.timeline-frame-cell')).toHaveCount(4)
   await expect(page.locator('.action-item')).toHaveCount(1)
+})
+
+test('sources without a normal map stay lit instead of rendering black', async ({ page }) => {
+  await page.goto('/')
+  const fixtureRoot = path.join(process.cwd(), 'e2e', 'fixtures', 'alignment')
+  // Colour-only frames: this project never gets a normal map, so the flat-normal fallback runs.
+  await page.locator('.toolbar input[type="file"]').nth(1).setInputFiles([
+    path.join(fixtureRoot, 'colour_0001.png'),
+    path.join(fixtureRoot, 'colour_0002.png'),
+  ])
+
+  const matchPage = page.getByTestId('manual-match-page')
+  await expect(matchPage).toBeVisible()
+  for (let index = 0; index < 2; index += 1) {
+    await page.getByRole('button', { name: '添加匹配列' }).click()
+    const slot = page.locator('.matching-column').nth(index).locator('[data-drop-kind="source"]')
+    const transfer = await page.evaluateHandle(() => new DataTransfer())
+    await page.locator('[data-match-kind="source"]').first().dispatchEvent('dragstart', { dataTransfer: transfer })
+    await slot.dispatchEvent('dragover', { dataTransfer: transfer })
+    await slot.dispatchEvent('drop', { dataTransfer: transfer })
+  }
+  await page.getByTestId('confirm-manual-match').click()
+  await expect(matchPage).toHaveCount(0)
+  await expect(page.locator('.timeline-frame-cell')).toHaveCount(2)
+  await expect(page.locator('.warning-card')).toHaveCount(2)
+
+  // Lighting is on by default; brighten it so flat-normal shading is measurable.
+  await page.locator('.inspector-panel [role="tablist"] button').filter({ hasText: '光照' }).click()
+  await page.locator('.lighting-panel input[type="range"]').first().fill('1.6')
+  await expect(page.locator('.renderer-error')).toHaveCount(0)
+
+  const previewCanvas = page.locator('.preview-canvas-host canvas')
+  await expect(previewCanvas).toBeVisible()
+  // A 64x64 frame must stay coloured across its whole area, not only at its origin texel.
+  await expect.poll(() => previewColourPixelCount(previewCanvas)).toBeGreaterThan(500)
 })
 
 test('grid import blocks color and normal sheets with different dimensions', async ({ page }) => {

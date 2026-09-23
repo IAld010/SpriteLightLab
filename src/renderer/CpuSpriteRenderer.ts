@@ -119,8 +119,22 @@ interface LightSample {
 }
 
 export function decodeNormalChannel(value: number): number {
+  // A 1x1 flat normal and a missing texture both funnel through here, so never return NaN.
+  if (!Number.isFinite(value)) return 0
   const decoded = (value / 255) * 2 - 1
   return Math.abs(decoded) < 0.01 ? 0 : decoded
+}
+
+/**
+ * Offset of a texel in a data texture. Textures of 1x1 act as a constant for the whole
+ * sprite (flat normal fallback), everything else is clamped so a frame rect can never
+ * read past the texture and poison the lighting math with NaN.
+ */
+function textureOffset(texture: ImageData, x: number, y: number): number {
+  if (texture.width <= 1 || texture.height <= 1) return 0
+  const clampedX = x < 0 ? 0 : x >= texture.width ? texture.width - 1 : x
+  const clampedY = y < 0 ? 0 : y >= texture.height ? texture.height - 1 : y
+  return (clampedY * texture.width + clampedX) * 4
 }
 function smoothstep(edge0: number, edge1: number, value: number): number {
   if (edge1 <= edge0) return value <= edge0 ? 0 : 1
@@ -230,7 +244,9 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
       const sourceY = Math.min(frame.y + Math.floor((y / outputHeight) * frame.height), frame.y + frame.height - 1)
       const sourceOffset = (sourceY * color.width + sourceX) * 4
       const outputOffset = (y * outputWidth + x) * 4
-      const originalAlpha = color.data[sourceOffset + 3] / 255
+      const insideColor =
+        sourceX >= 0 && sourceY >= 0 && sourceX < color.width && sourceY < color.height
+      const originalAlpha = insideColor ? color.data[sourceOffset + 3] / 255 : 0
       const sourceOpacity = Math.min(1, Math.max(0, input.sourceOpacity ?? 1))
       const sourceAlpha = input.sourceVisible === false ? 0 : originalAlpha * sourceOpacity
       const overlay = input.refinementOverlay
@@ -246,7 +262,7 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
       }
 
       if (input.debugNormal && originalAlpha >= 1 / 255) {
-        const normalOffset = (sourceY * normal.width + sourceX) * 4
+        const normalOffset = textureOffset(normal, sourceX, sourceY)
         output.data[outputOffset] = normal.data[normalOffset]
         output.data[outputOffset + 1] = normal.data[normalOffset + 1]
         output.data[outputOffset + 2] = normal.data[normalOffset + 2]
@@ -254,9 +270,9 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
         continue
       }
 
-      let red = color.data[sourceOffset] / 255
-      let green = color.data[sourceOffset + 1] / 255
-      let blue = color.data[sourceOffset + 2] / 255
+      let red = insideColor ? color.data[sourceOffset] / 255 : 0
+      let green = insideColor ? color.data[sourceOffset + 1] / 255 : 0
+      let blue = insideColor ? color.data[sourceOffset + 2] / 255 : 0
 
       if (sourceAlpha >= 1 / 255) {
         if (input.paletteMode === 'indexed') {
@@ -292,7 +308,7 @@ export function renderCpuSprite(input: CpuRenderInput): HTMLCanvasElement {
       }
 
       if (input.preferences.lightingEnabled && originalAlpha >= 1 / 255) {
-        const normalOffset = (sourceY * normal.width + sourceX) * 4
+        const normalOffset = textureOffset(normal, sourceX, sourceY)
         let normalX = decodeNormalChannel(normal.data[normalOffset])
         let normalY = decodeNormalChannel(normal.data[normalOffset + 1])
         let normalZ = decodeNormalChannel(normal.data[normalOffset + 2])

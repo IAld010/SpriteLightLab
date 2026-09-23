@@ -5408,14 +5408,13 @@ img {
 
 .compact-frame-strip {
   display: grid;
-  grid-template-columns: 54px minmax(0, 1fr) 96px;
+  grid-template-columns: 54px minmax(0, 1fr);
   min-height: 94px;
   border-top: 1px solid var(--editor-border);
   background: #151619;
 }
 
-.compact-frame-label,
-.compact-event-lane {
+.compact-frame-label {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -5426,8 +5425,7 @@ img {
   font-size: 10px;
 }
 
-.compact-frame-label strong,
-.compact-event-lane span {
+.compact-frame-label strong {
   color: var(--editor-text);
 }
 
@@ -5498,18 +5496,6 @@ img {
   font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.compact-event-lane {
-  border-left: 1px solid var(--editor-border);
-}
-
-.compact-event-lane div {
-  min-width: 70px;
-  padding: 4px 6px;
-  border: 1px dashed #44474f;
-  border-radius: 2px;
-  text-align: center;
 }
 
 .editor-empty,
