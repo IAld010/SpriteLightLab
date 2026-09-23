@@ -6113,3 +6113,79 @@ img {
   color: var(--vibrancy-text);
   cursor: pointer;
 }
+
+.export-section .section-title-row {
+  align-items: baseline;
+}
+
+.export-summary {
+  color: var(--vibrancy-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.export-options,
+.export-atlas-row {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.export-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.export-atlas-row {
+  grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(0, 1fr));
+}
+
+.export-section .field select,
+.export-section .field input:not([type='checkbox']) {
+  min-height: 32px;
+  border: 1px solid var(--vibrancy-border);
+  border-radius: 8px;
+  background: var(--vibrancy-deep);
+  color: var(--vibrancy-text);
+}
+
+.export-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin-top: 10px;
+}
+
+.export-toggle-grid .checkbox-row {
+  margin-top: 0;
+  color: var(--vibrancy-text-secondary);
+}
+
+.export-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.export-grid .button {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--vibrancy-border);
+  border-radius: 8px;
+  background: var(--vibrancy-surface);
+  color: var(--vibrancy-text);
+  font-size: 11px;
+}
+
+.export-grid .button:hover:not(:disabled) {
+  border-color: var(--vibrancy-accent);
+  background: rgba(10, 132, 255, 0.16);
+}
+
+.export-grid .button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.export-section .field-help {
+  color: var(--vibrancy-text-muted);
+}

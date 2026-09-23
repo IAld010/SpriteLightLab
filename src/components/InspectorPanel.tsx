@@ -11,12 +11,11 @@ import { t } from '../i18n'
 interface InspectorPanelProps {
   rendererStatus: string
   onOpenLibrary: () => void
-  onBeforeProjectChange: () => Promise<void>
 }
 
 type InspectorTab = 'palette' | 'lighting' | 'anchor' | 'frame' | 'project'
 
-export function InspectorPanel({ rendererStatus, onOpenLibrary, onBeforeProjectChange }: InspectorPanelProps) {
+export function InspectorPanel({ rendererStatus, onOpenLibrary }: InspectorPanelProps) {
   const [tab, setTab] = useState<InspectorTab>('project')
   const bundle = useEditorStore((state) => state.bundle)
   const currentFrame = useEditorStore((state) => getCurrentFrame(state))
@@ -165,7 +164,7 @@ export function InspectorPanel({ rendererStatus, onOpenLibrary, onBeforeProjectC
         </div>
       )}
 
-      {tab === 'project' && <ProjectPanel rendererStatus={rendererStatus} onOpenLibrary={onOpenLibrary} onBeforeProjectChange={onBeforeProjectChange} />}
+      {tab === 'project' && <ProjectPanel rendererStatus={rendererStatus} onOpenLibrary={onOpenLibrary} />}
     </aside>
   )
 }

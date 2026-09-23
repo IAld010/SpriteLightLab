@@ -512,7 +512,6 @@ export default function App() {
           <InspectorPanel
             rendererStatus={rendererStatus}
             onOpenLibrary={() => setShowLibrary(true)}
-            onBeforeProjectChange={flushCurrentProject}
           />
           <section className="center-workspace">
             <PreviewStage onStatusChange={setRendererStatus} />

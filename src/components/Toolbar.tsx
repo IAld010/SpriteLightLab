@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { parseProjectDocument } from '../domain/projectDocument'
+import {
+  currentProjectFileName,
+  exportCurrentProjectZip,
+} from '../services/currentProjectSnapshot'
 import { importPortableJson, importProjectZip } from '../services/projectIO'
 import { useEditorStore } from '../store/editorStore'
+import { downloadBlob } from '../utils/download'
 import type { BackendPreference } from '../domain/types'
 import { useI18n } from '../i18n'
 
@@ -34,6 +39,7 @@ export function Toolbar({
   const backend = useEditorStore((state) => state.settings.backend)
   const textureMode = useEditorStore((state) => state.settings.textureMode)
   const isImporting = useEditorStore((state) => state.isImporting)
+  const hasBundle = useEditorStore((state) => Boolean(state.bundle))
   const importProjectFiles = useEditorStore((state) => state.importProjectFiles)
   const applyProjectDocument = useEditorStore((state) => state.applyProjectDocument)
   const setNotice = useEditorStore((state) => state.setNotice)
@@ -73,6 +79,22 @@ export function Toolbar({
     })()
   }
 
+  const exportProjectPackage = async () => {
+    try {
+      const bytes = await exportCurrentProjectZip()
+      downloadBlob(
+        new Blob([bytes.slice().buffer as ArrayBuffer], { type: 'application/zip' }),
+        `${currentProjectFileName()}.spritelab.zip`,
+      )
+      setNotice({ tone: 'success', message: '已导出 ZIP 项目包。' })
+    } catch (error) {
+      setNotice({
+        tone: 'error',
+        message: error instanceof Error ? error.message : 'ZIP 导出失败。',
+      })
+    }
+  }
+
   return (
     <header className="toolbar">
       <div className="toolbar-actions">
@@ -94,6 +116,15 @@ export function Toolbar({
         </button>
         <button className="button" type="button" onClick={() => projectInput.current?.click()}>
           {t('导入项目包')}
+        </button>
+        <button
+          className="button"
+          type="button"
+          data-testid="export-project-zip"
+          disabled={!hasBundle}
+          onClick={() => void exportProjectPackage()}
+        >
+          {t('导出项目包')}
         </button>
         <div className="demo-picker" ref={demoPickerRef}>
           <button
@@ -174,6 +205,7 @@ export function Toolbar({
             if (!file) return
             setNotice({ tone: 'info', message: '正在导入项目包…' })
             try {
+              await onBeforeProjectChange()
               if (file.name.toLowerCase().endsWith('.zip')) {
                 const portable = await importProjectZip(await file.arrayBuffer())
                 await importProjectFiles(portable.files, portable.document, undefined, portable.refinementAssets)

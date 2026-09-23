@@ -35,15 +35,16 @@ test('toolbar removes branding and orders project actions by workflow', async ({
       .map((element) => (element.textContent ?? '').replace(/\s+/g, ' ').trim()),
   )
 
-  expect(actionLabels.slice(0, 4)).toEqual([
+  expect(actionLabels.slice(0, 5)).toEqual([
     '选择素材文件',
     '大图裁切',
     '导入项目包',
+    '导出项目包',
     '示例项目 ▾',
   ])
-  expect(actionLabels[4]).toMatch(/^项目库/)
-  expect(actionLabels[5]).toBe('项目编辑器')
-  expect(actionLabels[6]).toBe('? 导入说明')
+  expect(actionLabels[5]).toMatch(/^项目库/)
+  expect(actionLabels[6]).toBe('项目编辑器')
+  expect(actionLabels[7]).toBe('? 导入说明')
 })
 
 test('demo picker exposes three example projects', async ({ page }) => {
@@ -126,7 +127,7 @@ test('English localization covers workspace pages without horizontal overflow', 
     { tab: 0, selector: '.palette-panel', text: 'Palette Swap' },
     { tab: 1, selector: '.lighting-panel', text: 'Normal lighting lab' },
     { tab: 2, selector: '.frame-navigator-section', text: 'Frame navigator' },
-    { tab: 3, selector: '.project-panel', text: 'Render options' },
+    { tab: 3, selector: '.project-panel', text: 'Sprite export' },
     { tab: 4, selector: '.anchor-panel', text: 'Anchor calibration' },
   ]
   for (const panel of panels) {
@@ -390,7 +391,7 @@ test('palette, lighting and ZIP project pack work together', async ({ page }) =>
   await page.locator('.inspector-tabs-four button').nth(3).click()
   const [pngDownload] = await Promise.all([
     page.waitForEvent('download'),
-    page.locator('.project-panel .export-stack button').nth(0).click(),
+    page.locator('.export-section').getByTestId('export-frame-png').click(),
   ])
   const pngBytes = await readFile((await pngDownload.path())!)
   expect(pngBytes.length).toBeGreaterThan(100)
@@ -398,11 +399,11 @@ test('palette, lighting and ZIP project pack work together', async ({ page }) =>
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.locator('.project-panel .export-stack button').nth(4).click(),
+    page.getByTestId('export-project-zip').click(),
   ])
   const zipPath = await download.path()
   expect(zipPath).toBeTruthy()
-  await page.locator('.project-panel input[type="file"]').setInputFiles(zipPath!)
+  await page.locator('.toolbar input[type="file"]').nth(0).setInputFiles(zipPath!)
   await page.locator('.inspector-tabs-four button').nth(0).click()
   await expect(page.locator('.swatch-row')).toHaveCount(12)
   await expect(page.locator('.swatch-row input[type="color"]').first()).toHaveValue('#00ffff')
@@ -410,6 +411,111 @@ test('palette, lighting and ZIP project pack work together', async ({ page }) =>
   const outputDirectory = process.env.STAGE1_OUTPUT_DIR ?? path.join(process.cwd(), 'test-results')
   await mkdir(outputDirectory, { recursive: true })
   await page.screenshot({ path: path.join(outputDirectory, 'sprite-light-lab-palette-light.png'), fullPage: true })
+})
+
+test('sprite export panel groups scope, content and atlas controls in one block', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.locator('.inspector-tabs-four button').nth(3).click()
+  const panel = page.locator('.export-section')
+  await expect(panel).toBeVisible()
+
+  await expect(panel.getByTestId('export-scope')).toHaveValue('action')
+  await expect(panel.getByTestId('export-content')).toHaveValue('composited')
+  await expect(panel.getByTestId('export-bake-palette')).toBeChecked()
+  await expect(panel.getByTestId('export-bake-lighting')).toBeChecked()
+  await expect(panel.getByTestId('export-uniform-canvas')).toBeChecked()
+  await expect(panel.locator('.export-grid button')).toHaveCount(7)
+  await expect(panel.locator('.export-options')).toHaveCSS('grid-template-columns', /\d+(\.\d+)?px/)
+  await expect(panel.getByTestId('export-status')).toContainText('manifest.json')
+
+  // 源图 means untouched source pixels, so the bakes start switched off.
+  await panel.getByTestId('export-content').selectOption('source')
+  await expect(panel.getByTestId('export-bake-palette')).not.toBeChecked()
+  await expect(panel.getByTestId('export-bake-lighting')).not.toBeChecked()
+
+  await panel.getByTestId('export-content').selectOption('composited')
+  await expect(panel.getByTestId('export-bake-palette')).toBeChecked()
+  await expect(panel.getByTestId('export-bake-lighting')).toBeChecked()
+
+  // A single frame cannot become an animation, so the animation buttons stay disabled there.
+  await panel.getByTestId('export-scope').selectOption('frame')
+  await expect(panel.getByTestId('export-gif')).toBeDisabled()
+  await expect(panel.getByTestId('export-apng')).toBeDisabled()
+  await expect(panel.getByTestId('export-frame-png')).toBeEnabled()
+})
+
+test('frame sequence and sheet exports produce engine-ready bundles', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.locator('.inspector-tabs-four button').nth(3).click()
+  const panel = page.locator('.export-section')
+
+  const [sequenceDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    panel.getByTestId('export-sequence-zip').click(),
+  ])
+  expect(sequenceDownload.suggestedFilename()).toMatch(/-sequence\.zip$/)
+  const sequenceBytes = await readFile((await sequenceDownload.path())!)
+  expect([...sequenceBytes.subarray(0, 2)]).toEqual([0x50, 0x4b])
+  const sequenceText = sequenceBytes.toString('latin1')
+  expect(sequenceText).toContain('manifest.json')
+  expect(sequenceText).toMatch(/frames\/[^/]+\/0001_/)
+
+  const [sheetDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    panel.getByTestId('export-sheet-bundle').click(),
+  ])
+  const sheetText = (await readFile((await sheetDownload.path())!)).toString('latin1')
+  expect(sheetText).toMatch(/-sheet\.png/)
+  expect(sheetText).toContain('-atlas.json')
+  expect(sheetText).toContain('-manifest.json')
+
+  await panel.getByTestId('export-atlas-format').selectOption('aseprite')
+  const [atlasDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    panel.getByTestId('export-atlas-json').click(),
+  ])
+  const atlas = JSON.parse(await readFile((await atlasDownload.path())!, 'utf8')) as {
+    frames: Record<string, unknown>
+    meta: { frameTags?: unknown[] }
+    animations?: unknown[]
+  }
+  expect(Object.keys(atlas.frames).length).toBeGreaterThan(0)
+  expect(Array.isArray(atlas.meta.frameTags)).toBe(true)
+
+  const [manifestDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    panel.getByTestId('export-engine-manifest').click(),
+  ])
+  const manifest = JSON.parse(await readFile((await manifestDownload.path())!, 'utf8')) as {
+    animations?: unknown[]
+  }
+  expect(Array.isArray(manifest.animations)).toBe(true)
+  await expect(panel.getByTestId('export-status')).toContainText('已导出')
+})
+
+test('animated export writes a GIF and a lossless APNG', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.locator('.inspector-tabs-four button').nth(3).click()
+  const panel = page.locator('.export-section')
+
+  const [gifDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    panel.getByTestId('export-gif').click(),
+  ])
+  const gifBytes = await readFile((await gifDownload.path())!)
+  expect(gifBytes.subarray(0, 6).toString('latin1')).toBe('GIF89a')
+
+  const [apngDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    panel.getByTestId('export-apng').click(),
+  ])
+  const apngBytes = await readFile((await apngDownload.path())!)
+  expect([...apngBytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10])
+  expect(apngBytes.toString('latin1')).toContain('acTL')
+  await expect(panel.getByTestId('export-status')).toContainText('已导出')
 })
 
 test('palette name input can be cleared before committing a new name', async ({ page }) => {

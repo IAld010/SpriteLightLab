@@ -19,7 +19,7 @@ const BLEND_MODE: Record<FrameRefinement['layers'][number]['blendMode'], GlobalC
   screen: 'screen',
 }
 
-function frameRect(frame: PreviewFrame, image: RuntimeImage): {
+export function frameRect(frame: PreviewFrame, image: RuntimeImage): {
   x: number
   y: number
   width: number
@@ -33,7 +33,7 @@ function frameRect(frame: PreviewFrame, image: RuntimeImage): {
   }
 }
 
-async function imageFileToData(image: RuntimeImage): Promise<ImageData> {
+export async function imageFileToData(image: RuntimeImage): Promise<ImageData> {
   const bitmap = await createImageBitmap(image.file)
   try {
     const canvas = document.createElement('canvas')

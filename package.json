@@ -14,10 +14,12 @@
     "test:e2e": "npm run build && playwright test"
   },
   "dependencies": {
+    "gifenc": "^1.0.3",
     "idb": "^8.0.3",
     "pixi.js": "^8.21.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "upng-js": "^2.1.0",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
