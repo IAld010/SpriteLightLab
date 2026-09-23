@@ -230,7 +230,12 @@ export function ProjectPanel({ rendererStatus, onOpenLibrary, onBeforeProjectCha
                   if (parsed.format === 'sprite-light-lab-portable') {
                     const portable = importPortableJson(content)
                     if (portable.files.length > 0) {
-                      await importProjectFiles(portable.files, portable.document)
+                      await importProjectFiles(
+                        portable.files,
+                        portable.document,
+                        undefined,
+                        portable.refinementAssets,
+                      )
                     } else {
                       applyProjectDocument(portable.document)
                     }

@@ -71,6 +71,7 @@ const EN_TRANSLATIONS: Record<string, string> = {
   '保存': 'Save',
   '保存中…': 'Saving…',
   '项目已保存。': 'Project saved.',
+  '项目已打开。': 'Project opened.',
   '保存失败，请重试。': 'Save failed. Please try again.',
   '绘画画布': 'Drawing canvas',
   '请先打开一个精灵项目。': 'Open a sprite project first.',

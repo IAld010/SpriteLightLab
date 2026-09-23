@@ -28,7 +28,14 @@ import { isExternalFileDrag } from './utils/dragAndDrop'
 import { useProjectStore } from './store/projectStore'
 import { useRefinementStore } from './store/refinementStore'
 import { useFrameEventStore } from './store/frameEventStore'
+import { waitForRefinementWrites } from './services/refinementWriteQueue'
 import { useI18n } from './i18n'
+
+function editingStamp(): string {
+  const refinement = useRefinementStore.getState()
+  const events = useFrameEventStore.getState().events
+  return `${refinement.revision}:${JSON.stringify(events)}`
+}
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -106,13 +113,14 @@ export default function App() {
     },
     [setNotice],
   )
-  const persistCurrentProject = useCallback(async (): Promise<void> => {
+  const persistCurrentProject = useCallback(async (announce = false): Promise<void> => {
     const editor = useEditorStore.getState()
     const project = useProjectStore.getState()
     if (!editor.bundle || !editor.projectId) {
       return
     }
     setSaveStatus('saving')
+    const stampBeforeSave = editingStamp()
     try {
       const refinement = useRefinementStore.getState()
       const document = createProjectDocument(
@@ -138,10 +146,15 @@ export default function App() {
         refinementAssets: Object.values(refinement.assets),
       })
       upsertProject(summary, true)
-      useRefinementStore.getState().markClean()
-      useFrameEventStore.getState().markClean()
+      // Only clear the pending-edit flag when nothing changed while saving.
+      if (editingStamp() === stampBeforeSave) {
+        useRefinementStore.getState().markClean()
+        useFrameEventStore.getState().markClean()
+      }
       setSaveStatus('saved')
-      setNotice({ tone: 'success', message: '项目已保存。' })
+      if (announce) {
+        setNotice({ tone: 'success', message: '项目已保存。' })
+      }
     } catch (error) {
       setSaveStatus('failed')
       setNotice({ tone: 'error', message: '保存失败，请重试。' })
@@ -149,8 +162,11 @@ export default function App() {
     }
   }, [setNotice, upsertProject])
 
-  const flushCurrentProject = useCallback(async (): Promise<void> => {
-    saveQueue.current = saveQueue.current.catch(() => undefined).then(persistCurrentProject)
+  const flushCurrentProject = useCallback(async (announce = false): Promise<void> => {
+    await waitForRefinementWrites()
+    saveQueue.current = saveQueue.current
+      .catch(() => undefined)
+      .then(() => persistCurrentProject(announce))
     await saveQueue.current
   }, [persistCurrentProject])
 
@@ -207,10 +223,37 @@ export default function App() {
       return
     }
     const timeout = window.setTimeout(() => {
-      saveQueue.current = saveQueue.current.catch(() => undefined).then(persistCurrentProject)
+      saveQueue.current = saveQueue.current.catch(() => undefined).then(() => persistCurrentProject())
     }, 700)
     return () => window.clearTimeout(timeout)
-  }, [bundle, frameEventDirty, persistCurrentProject, projectCreatedAt, projectId, refinementDirty, settings])
+  }, [bundle, persistCurrentProject, projectCreatedAt, projectId, settings])
+
+  // Painting edits stay in memory; they are flushed on manual save, on leaving the editor,
+  // on project switch, when the page is hidden, or after a long idle period.
+  useEffect(() => {
+    if (!hydrated.current || switchingProject.current || !projectId || (!refinementDirty && !frameEventDirty)) {
+      return
+    }
+    const timeout = window.setTimeout(() => {
+      saveQueue.current = saveQueue.current.catch(() => undefined).then(() => persistCurrentProject())
+    }, 20000)
+    return () => window.clearTimeout(timeout)
+  }, [frameEventDirty, persistCurrentProject, projectId, refinementDirty])
+
+  useEffect(() => {
+    const flushOnHide = () => {
+      if (document.visibilityState !== 'hidden') {
+        return
+      }
+      void flushCurrentProject().catch(() => undefined)
+    }
+    document.addEventListener('visibilitychange', flushOnHide)
+    window.addEventListener('pagehide', flushOnHide)
+    return () => {
+      document.removeEventListener('visibilitychange', flushOnHide)
+      window.removeEventListener('pagehide', flushOnHide)
+    }
+  }, [flushCurrentProject])
 
   useEffect(() => {
     if (hydrated.current && projectId) {
@@ -305,10 +348,15 @@ export default function App() {
         throw new Error('项目数据不存在，可能已被移除。')
       }
       await activateProject(stored.id)
-      await importProjectFiles(stored.files, stored.document, {
-        projectId: stored.id,
-        createdAt: stored.createdAt,
-      })
+      await importProjectFiles(
+        stored.files,
+        stored.document,
+        {
+          projectId: stored.id,
+          createdAt: stored.createdAt,
+        },
+        stored.refinementAssets,
+      )
       setShowLibrary(false)
     } catch (error) {
       setLibraryError(error instanceof Error ? error.message : '项目打开失败。')
@@ -344,10 +392,15 @@ export default function App() {
           await activateProject(nextProject.id)
           const stored = await loadProject(nextProject.id)
           if (stored) {
-            await importProjectFiles(stored.files, stored.document, {
-              projectId: stored.id,
-              createdAt: stored.createdAt,
-            })
+            await importProjectFiles(
+              stored.files,
+              stored.document,
+              {
+                projectId: stored.id,
+                createdAt: stored.createdAt,
+              },
+              stored.refinementAssets,
+            )
             setShowLibrary(false)
           }
         } else {
@@ -451,8 +504,8 @@ export default function App() {
       ) : showProjectEditor ? (
         <ProjectEditorWorkspace
           saveStatus={refinementDirty && saveStatus === 'saved' ? 'dirty' : saveStatus}
-          onSave={() => void flushCurrentProject()}
-          onExit={() => setShowProjectEditor(false)}
+          onSave={() => void flushCurrentProject(true)}
+          onExit={() => { void flushCurrentProject().finally(() => setShowProjectEditor(false)) }}
         />
       ) : (
         <main className="workspace">

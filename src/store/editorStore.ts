@@ -328,7 +328,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (files.length === 0) {
       return
     }
-    set({ isImporting: true, notice: { tone: 'info', message: '\u6b63\u5728\u6062\u590d\u9879\u76ee\u4e0e\u7d20\u6750\u2026' } })
+    set({ isImporting: true, notice: { tone: 'info', message: '\u6b63\u5728\u6253\u5f00\u9879\u76ee\u2026' } })
     try {
       const cropFiles = cropFilesFromDocument(files, document)
       const imported =
@@ -363,14 +363,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         isImporting: false,
         anchorCalibrationEnabled: false,
         settings: mergeSettings(get().settings, document.settings),
-        notice: { tone: 'success', message: '\u9879\u76ee\u4e0e\u7d20\u6750\u5df2\u6062\u590d\u3002' },
+        notice: { tone: 'success', message: '\u9879\u76ee\u5df2\u6253\u5f00\u3002' },
       })
     } catch (error) {
       set({
         isImporting: false,
         notice: {
           tone: 'error',
-          message: error instanceof Error ? error.message : '\u9879\u76ee\u6062\u590d\u5931\u8d25\u3002',
+          message: error instanceof Error ? error.message : '\u9879\u76ee\u6253\u5f00\u5931\u8d25\u3002',
         },
       })
     }

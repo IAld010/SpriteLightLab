@@ -763,6 +763,351 @@ test('project library saves, switches, renames and removes projects', async ({ p
   await expect(page.locator('.project-card')).toHaveCount(1)
 })
 
+async function hasCanvasColor(page: Page, color: [number, number, number]): Promise<boolean> {
+  return page.locator('.drawing-display-canvas').evaluate((canvas, expected) => {
+    const drawingCanvas = canvas as HTMLCanvasElement
+    const context = drawingCanvas.getContext('2d', { willReadFrequently: true })
+    if (!context) return false
+    const pixels = context.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height).data
+    for (let offset = 0; offset < pixels.length; offset += 4) {
+      if (
+        Math.abs(pixels[offset] - expected[0]) <= 8 &&
+        Math.abs(pixels[offset + 1] - expected[1]) <= 8 &&
+        Math.abs(pixels[offset + 2] - expected[2]) <= 8 &&
+        pixels[offset + 3] > 200
+      ) {
+        return true
+      }
+    }
+    return false
+  }, color)
+}
+
+test('opening a project from the library keeps saved refinement bitmaps', async ({ page }) => {
+  await page.goto('/manifest.webmanifest')
+  await page.evaluate(async () => {
+    const toBytes = (base64: string) =>
+      Uint8Array.from(atob(base64), (character) => character.charCodeAt(0))
+    const makePng = (color: string) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 96
+      canvas.height = 96
+      const context = canvas.getContext('2d')!
+      context.fillStyle = color
+      context.fillRect(0, 0, 96, 96)
+      return canvas.toDataURL('image/png').split(',')[1]
+    }
+    const colorFile = new File([toBytes(makePng('rgb(255,255,255)'))], 'hero_0001.png', {
+      type: 'image/png',
+      lastModified: 1,
+    })
+    const normalFile = new File([toBytes(makePng('rgb(128,128,255)'))], 'hero_0001_n.png', {
+      type: 'image/png',
+      lastModified: 1,
+    })
+    const celFile = new File([toBytes(makePng('rgb(255,0,255)'))], 'cel.png', {
+      type: 'image/png',
+      lastModified: 1,
+    })
+    const now = '2026-02-02T00:00:00.000Z'
+    const projectDocument = {
+      version: 3,
+      projectName: '细化保留项目',
+      createdAt: now,
+      sourceMode: 'frames',
+      sourceName: 'hero',
+      assets: [{ path: 'hero_0001.png', name: 'hero_0001.png', kind: 'image' }],
+      frames: [
+        {
+          id: 'frame:1',
+          name: 'hero_0001',
+          source: { id: 'source:1', name: 'hero_0001.png', imageId: 'img:1' },
+          normal: { id: 'normal:1', name: 'hero_0001_n.png', imageId: 'img:2' },
+          pairingStatus: 'matched',
+        },
+      ],
+      animations: [{ id: 'clip:1', name: 'hero', frameIds: ['frame:1'], fps: 8, loop: true }],
+      normalPairing: [{ frameId: 'frame:1', normalId: 'normal:1' }],
+      paletteSources: [],
+      paletteMode: 'fullcolor',
+      palettePresets: [
+        {
+          id: 'palette:1',
+          name: '默认',
+          entries: [],
+          rules: [],
+          adjustments: {
+            hue: 0,
+            saturation: 1,
+            lightness: 0,
+            contrast: 1,
+            tint: '#ffffff',
+            tintStrength: 0,
+          },
+        },
+      ],
+      activePaletteId: 'palette:1',
+      lighting: { ambientColor: '#ffffff', ambientIntensity: 0.34, lights: [] },
+      renderPreferences: {
+        lightingEnabled: false,
+        normalStrength: 1,
+        flipGreen: false,
+        specularEnabled: false,
+        specularStrength: 0.35,
+        pixelPerfect: true,
+      },
+      refinements: [
+        {
+          id: 'refinement:1',
+          sourceFrameId: 'frame:1',
+          visible: true,
+          sourceVisible: true,
+          sourceOpacity: 1,
+          layers: [
+            {
+              id: 'refinement-layer:1',
+              name: '细化层 1',
+              kind: 'raster',
+              visible: true,
+              locked: false,
+              opacity: 1,
+              blendMode: 'normal',
+              paletteSwap: false,
+            },
+          ],
+          cels: [
+            {
+              id: 'refinement-cel:1',
+              frameId: 'frame:1',
+              layerId: 'refinement-layer:1',
+              bitmapAssetId: 'refinement-asset:1',
+              offsetX: 0,
+              offsetY: 0,
+              width: 96,
+              height: 96,
+            },
+          ],
+          revision: 2,
+          sourceHash: '',
+        },
+      ],
+      frameEvents: [],
+      settings: {
+        backend: 'webgl',
+        textureMode: 'color',
+        background: 'checker',
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+        showRefinement: true,
+      },
+    }
+
+    const request = indexedDB.open('sprite-light-lab', 4)
+    request.onupgradeneeded = () => {
+      const db = request.result
+      for (const store of [
+        'workspace',
+        'directory',
+        'projectIndex',
+        'projectData',
+        'meta',
+        'refinementDocuments',
+        'refinementAssets',
+      ]) {
+        if (!db.objectStoreNames.contains(store)) {
+          db.createObjectStore(store, { keyPath: 'id' })
+        }
+      }
+      const assetStore = request.transaction!.objectStore('refinementAssets')
+      if (!assetStore.indexNames.contains('projectId')) {
+        assetStore.createIndex('projectId', 'projectId')
+      }
+    }
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const transaction = db.transaction(
+      ['projectIndex', 'projectData', 'refinementDocuments', 'refinementAssets'],
+      'readwrite',
+    )
+    transaction.objectStore('projectIndex').put({
+      id: 'project:1',
+      name: '细化保留项目',
+      createdAt: now,
+      updatedAt: now,
+      sourceName: 'hero',
+      sourceMode: 'frames',
+      frameCount: 1,
+      animationCount: 1,
+      warningCount: 0,
+    })
+    transaction.objectStore('projectData').put({
+      id: 'project:1',
+      createdAt: now,
+      updatedAt: now,
+      document: projectDocument,
+      files: [colorFile, normalFile],
+    })
+    transaction.objectStore('refinementDocuments').put({
+      id: 'refinement:1',
+      projectId: 'project:1',
+      refinement: projectDocument.refinements[0],
+      updatedAt: now,
+    })
+    transaction.objectStore('refinementAssets').put({
+      id: 'refinement-asset:1',
+      projectId: 'project:1',
+      frameId: 'frame:1',
+      layerId: 'refinement-layer:1',
+      blob: celFile,
+      width: 96,
+      height: 96,
+      updatedAt: now,
+    })
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error)
+    })
+    db.close()
+  })
+
+  await page.goto('/')
+  await expect(page.getByTestId('project-library')).toBeVisible()
+  await page.locator('.project-card').first().getByRole('button', { name: '打开项目' }).click()
+  await page.getByTestId('open-project-editor').click()
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+})
+
+test('painted refinement survives a save and a full page reload', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.getByTestId('open-project-editor').click()
+  const drawingCanvas = page.locator('.drawing-display-canvas')
+  await expect(drawingCanvas).toBeVisible()
+  await page.locator('.color-panel input[type="color"]').fill('#ff00ff')
+
+  const bounds = await drawingCanvas.boundingBox()
+  if (!bounds) throw new Error('Drawing canvas not found')
+  await page.mouse.move(bounds.x + bounds.width * 0.28, bounds.y + bounds.height * 0.28)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * 0.5, { steps: 5 })
+  await page.mouse.up()
+  await page.mouse.move(bounds.x - 40, bounds.y - 40)
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+
+  await page.getByTestId('editor-save-button').click()
+  await expect(page.locator('.save-state')).toContainText('已保存')
+
+  await page.reload()
+  await expect(page.getByTestId('open-project-editor')).toBeEnabled()
+  await page.getByTestId('open-project-editor').click()
+  await expect(page.locator('.drawing-display-canvas')).toBeVisible()
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+})
+
+test('rectangular selection draws Photoshop-style marching ants', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.getByTestId('open-project-editor').click()
+  await page.locator('.drawing-tool-button[data-tool="select"]').click()
+  const canvas = page.locator('.drawing-display-canvas')
+  await expect(canvas).toBeVisible()
+  const bounds = await canvas.boundingBox()
+  if (!bounds) throw new Error('Drawing canvas not found')
+  await page.mouse.move(bounds.x + bounds.width * 0.25, bounds.y + bounds.height * 0.25)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + bounds.width * 0.6, bounds.y + bounds.height * 0.6, { steps: 5 })
+  await page.mouse.up()
+
+  const overlay = page.getByTestId('drawing-selection-layer')
+  await expect(overlay).toBeVisible()
+  const sample = () =>
+    overlay.evaluate((element) => {
+      const target = element as HTMLCanvasElement
+      const context = target.getContext('2d', { willReadFrequently: true })!
+      const data = context.getImageData(0, 0, target.width, target.height).data
+      let black = 0
+      let white = 0
+      let signature = 0
+      for (let offset = 0; offset < data.length; offset += 4) {
+        if (data[offset + 3] < 200) continue
+        const isWhite = data[offset] > 215 && data[offset + 1] > 215 && data[offset + 2] > 215
+        const isBlack = data[offset] < 40 && data[offset + 1] < 40 && data[offset + 2] < 40
+        if (isWhite) {
+          white += 1
+          signature += offset
+        } else if (isBlack) {
+          black += 1
+          signature -= offset
+        }
+      }
+      return { black, white, signature }
+    })
+
+  const first = await sample()
+  expect(first.black).toBeGreaterThan(10)
+  expect(first.white).toBeGreaterThan(10)
+
+  let marching = false
+  for (let attempt = 0; attempt < 20 && !marching; attempt += 1) {
+    await page.waitForTimeout(120)
+    const next = await sample()
+    marching = next.signature !== first.signature
+  }
+  expect(marching).toBe(true)
+})
+
+test('the first stroke of a new refinement layer lands on the canvas', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.getByTestId('open-project-editor').click()
+  const drawingCanvas = page.locator('.drawing-display-canvas')
+  await expect(drawingCanvas).toBeVisible()
+  await page.locator('.color-panel input[type="color"]').fill('#ff00ff')
+
+  const bounds = await drawingCanvas.boundingBox()
+  if (!bounds) throw new Error('Drawing canvas not found')
+  await page.mouse.move(bounds.x + bounds.width * 0.2, bounds.y + bounds.height * 0.2)
+  await page.mouse.down()
+  await page.mouse.up()
+  await page.mouse.move(bounds.x - 60, bounds.y - 60)
+
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+  await page.locator('.compact-frame-cell').first().click()
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+})
+
+test('painting keeps edits in memory until an explicit save', async ({ page }) => {
+  await page.goto('/')
+  await chooseDemo(page, 0)
+  await page.getByTestId('open-project-editor').click()
+  const drawingCanvas = page.locator('.drawing-display-canvas')
+  await expect(drawingCanvas).toBeVisible()
+  // Wait for the editor-open autosave to settle before painting.
+  await page.waitForTimeout(1500)
+  await expect(page.locator('.save-state')).toContainText('已保存')
+
+  const bounds = await drawingCanvas.boundingBox()
+  if (!bounds) throw new Error('Drawing canvas not found')
+  await page.locator('.color-panel input[type="color"]').fill('#ff00ff')
+  await page.mouse.move(bounds.x + bounds.width * 0.3, bounds.y + bounds.height * 0.3)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + bounds.width * 0.4, bounds.y + bounds.height * 0.4, { steps: 4 })
+  await page.mouse.up()
+  await page.mouse.move(bounds.x - 60, bounds.y - 60)
+
+  await expect.poll(() => hasCanvasColor(page, [255, 0, 255])).toBe(true)
+  await expect(page.locator('.compact-frame-cell').first()).toContainText('●')
+  await expect(page.locator('.save-state')).toContainText('有未保存修改')
+  await page.waitForTimeout(5000)
+  await expect(page.locator('.save-state')).toContainText('有未保存修改')
+
+  await page.getByTestId('editor-save-button').click()
+  await expect(page.locator('.save-state')).toContainText('已保存')
+})
+
 test('legacy single-workspace data migrates once and can be removed permanently', async ({ page }) => {
   await page.goto('/manifest.webmanifest')
   await page.evaluate(async () => {

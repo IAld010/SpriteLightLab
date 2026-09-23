@@ -11,6 +11,7 @@ import {
   type PixelPoint,
 } from '../domain/pixelToolkit'
 import { renderSourceFrameCanvas } from '../renderer/RefinementRenderer'
+import { trackRefinementWrite } from '../services/refinementWriteQueue'
 import { activePaletteFromState, useProjectStore } from '../store/projectStore'
 import { getCurrentFrame, getSelectedAction, useEditorStore } from '../store/editorStore'
 import { useRefinementStore, type DrawingTool } from '../store/refinementStore'
@@ -87,6 +88,9 @@ export function DrawingCanvas() {
   const viewportRef = useRef<HTMLDivElement>(null)
   const displayCanvasRef = useRef<HTMLCanvasElement>(null)
   const layerCanvasRef = useRef<HTMLCanvasElement>(null)
+  const layerCanvasKeyRef = useRef<string | undefined>(undefined)
+  const selectionCanvasRef = useRef<HTMLCanvasElement>(null)
+  const marchingOffsetRef = useRef(0)
   const baseCanvasRef = useRef<HTMLCanvasElement | undefined>(undefined)
   const onionCanvasesRef = useRef<Array<{ opacity: number; canvas: HTMLCanvasElement }>>([])
   const celCanvasCacheRef = useRef<Map<string, HTMLCanvasElement>>(new Map())
@@ -189,21 +193,6 @@ export function DrawingCanvas() {
       }
       context.restore()
     }
-    if (selection) {
-      context.save()
-      context.fillStyle = 'rgba(10, 132, 255, 0.16)'
-      context.fillRect(selection.x, selection.y, selection.width, selection.height)
-      context.strokeStyle = '#0a84ff'
-      context.lineWidth = 2 / viewScale
-      context.setLineDash([6 / viewScale, 4 / viewScale])
-      context.strokeRect(
-        selection.x + 1 / viewScale,
-        selection.y + 1 / viewScale,
-        Math.max(0, selection.width - 2 / viewScale),
-        Math.max(0, selection.height - 2 / viewScale),
-      )
-      context.restore()
-    }
     if (cursor && (tool === 'pencil' || tool === 'eraser')) {
       context.save()
       context.globalCompositeOperation = 'difference'
@@ -213,7 +202,7 @@ export function DrawingCanvas() {
       }
       context.restore()
     }
-  }, [activeLayerId, brushSize, cursor, pixelGrid, refinement, selection, tool, viewScale])
+  }, [activeLayerId, brushSize, cursor, pixelGrid, refinement, tool, viewScale])
 
   useEffect(() => {
     if (!bundle || !frame || !palette) return
@@ -266,16 +255,77 @@ export function DrawingCanvas() {
     let cancelled = false
     const cel = refinement?.cels.find((candidate) => candidate.layerId === activeLayerId)
     const asset = cel?.bitmapAssetId ? assets[cel.bitmapAssetId] : undefined
+    const canvasKey = `${frame?.id ?? ''}:${activeLayerId ?? ''}:${asset?.id ?? 'empty'}`
+    if (!asset && layerCanvasKeyRef.current === canvasKey && layerCanvasRef.current) {
+      return () => { cancelled = true }
+    }
     void loadCanvasFromBlob(asset?.blob, frameWidth, frameHeight).then((canvas) => {
       if (!cancelled) {
         layerCanvasRef.current = canvas
+        layerCanvasKeyRef.current = canvasKey
         setDrawVersion((value) => value + 1)
       }
     })
     return () => { cancelled = true }
-  }, [activeLayerId, assets, frameHeight, frameWidth, refinement])
+  }, [activeLayerId, assets, frame?.id, frameHeight, frameWidth, refinement])
 
   useEffect(() => { renderDisplay() }, [drawVersion, renderDisplay])
+
+  // Photoshop-style marching ants: alternating black/white dashes drawn on a screen-space overlay.
+  const drawMarchingAnts = useCallback(() => {
+    const canvas = selectionCanvasRef.current
+    if (!canvas) return
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    if (!selection) return
+    const dash = 4
+    const x = selection.x * viewScale + 0.5
+    const y = selection.y * viewScale + 0.5
+    const width = Math.max(0, selection.width * viewScale - 1)
+    const height = Math.max(0, selection.height * viewScale - 1)
+    context.lineWidth = 1
+    context.setLineDash([dash, dash])
+    context.strokeStyle = '#000000'
+    context.lineDashOffset = -marchingOffsetRef.current
+    context.strokeRect(x, y, width, height)
+    context.strokeStyle = '#ffffff'
+    context.lineDashOffset = -marchingOffsetRef.current + dash
+    context.strokeRect(x, y, width, height)
+    context.setLineDash([])
+  }, [selection, viewScale])
+
+  useEffect(() => {
+    const canvas = selectionCanvasRef.current
+    if (!canvas) return
+    canvas.width = Math.max(1, Math.round(frameWidth * viewScale))
+    canvas.height = Math.max(1, Math.round(frameHeight * viewScale))
+    drawMarchingAnts()
+  }, [drawMarchingAnts, frameHeight, frameWidth, viewScale])
+
+  useEffect(() => {
+    if (!selection) {
+      marchingOffsetRef.current = 0
+      drawMarchingAnts()
+      return
+    }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      drawMarchingAnts()
+      return
+    }
+    let animationFrame = 0
+    let lastTick = performance.now()
+    const tick = (now: number) => {
+      if (now - lastTick >= 90) {
+        lastTick = now
+        marchingOffsetRef.current = (marchingOffsetRef.current + 1) % 8
+        drawMarchingAnts()
+      }
+      animationFrame = requestAnimationFrame(tick)
+    }
+    animationFrame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(animationFrame)
+  }, [drawMarchingAnts, selection])
 
   useEffect(() => {
     if (!viewportRef.current || frameWidth < 1 || frameHeight < 1) return
@@ -300,12 +350,23 @@ export function DrawingCanvas() {
       return undefined
     }
     selectLayer(layer.id)
+    const canvasKey = `${frame.id}:${layer.id}:empty`
+    if (!layerCanvasRef.current || layerCanvasRef.current.width !== frameWidth || layerCanvasRef.current.height !== frameHeight) {
+      const canvas = document.createElement('canvas')
+      canvas.width = frameWidth
+      canvas.height = frameHeight
+      layerCanvasRef.current = canvas
+    }
+    layerCanvasKeyRef.current = canvasKey
     return { layerId: layer.id, width: frameWidth, height: frameHeight }
   }, [activeLayerId, ensureFrame, frame, frameHeight, frameWidth, refinement, selectLayer])
 
   const commitLayer = useCallback(async (layerId: string, width: number, height: number) => {
     if (!frame || !layerCanvasRef.current) return
-    saveCelBlob(frame.id, layerId, await canvasToBlob(layerCanvasRef.current), width, height)
+    await trackRefinementWrite((async () => {
+      const blob = await canvasToBlob(layerCanvasRef.current!)
+      saveCelBlob(frame.id, layerId, blob, width, height)
+    })())
   }, [frame, saveCelBlob])
 
   const beginPointer = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -554,6 +615,12 @@ export function DrawingCanvas() {
                 : 'none',
               backgroundSize: `${viewScale}px ${viewScale}px`,
             }}
+          />
+          <canvas
+            ref={selectionCanvasRef}
+            className="drawing-selection-canvas"
+            data-testid="drawing-selection-layer"
+            aria-hidden="true"
           />
         </div>
       </div>
